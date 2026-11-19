@@ -3,7 +3,7 @@
     "name": "Waylix",
     "slug": "waylix",
     "scheme": "waylix",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,7 +13,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Waylix uses your location to show the map around you, navigate, and place the hazards you report.",
         "NSMotionUsageDescription": "Waylix can detect potholes automatically from your phone's motion sensor while you drive.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -42,8 +44,12 @@
       [
         "expo-build-properties",
         {
-          "android": { "minSdkVersion": 26 },
-          "ios": { "deploymentTarget": "16.4" }
+          "android": {
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
         }
       ]
     ],

@@ -35,13 +35,13 @@ Captured from the app's real UI (react-native-web) against the live API. The bas
 
 | Path | What it is |
 |---|---|
-| `packages/engine` | **@waylix/engine**: zero-dependency TypeScript engine (35 tests) |
-| `packages/server` | **@waylix/server**: REST API on Node + built-in SQLite, event-sourced (8 tests) |
+| `packages/engine` | **@waylix/engine**: zero-dependency TypeScript engine (43 tests) |
+| `packages/server` | **@waylix/server**: REST API on Node + built-in SQLite, event-sourced, device identities (13 tests) |
 | `apps/mobile` | **Waylix app**: Expo / React Native, MapLibre, Android + iOS |
 | `infra/` | Docker Compose, self-hosted OSRM (car + foot), PostGIS scale-out schema |
 | `docs/WHITEPAPER.md` | The Waylix white paper |
 
-## Features (v0.1)
+## Features (v0.2)
 
 - **Free maps.** OpenStreetMap vector tiles via [OpenFreeMap](https://openfreemap.org) (no API key) rendered with MapLibre Native.
 - **Offline maps.** Download the visible area (zoom 10–16) with its hazards. The map, hazard alerts and any route you already planned keep working without signal.
@@ -61,7 +61,7 @@ Requires Node ≥ 22.13.
 ```bash
 npm install
 npm test                 # engine + server tests
-npm run server           # API on http://localhost:8787 (SQLite at ./data/waylix.db)
+WAYLIX_REQUIRE_DEVICE=0 npm run server   # dev API on http://localhost:8787 (SQLite at ./data/waylix.db)
 npm run seed -w @waylix/server -- http://localhost:8787   # demo hazards around Johannesburg
 ```
 
@@ -107,24 +107,32 @@ docker compose -f infra/docker-compose.yml up -d api
 | GET | `/v1/hazards/:id` | One hazard and an evidence summary |
 | POST | `/v1/route-risk` | `{coordinates}` → risk score and hazards along a route |
 
-Set `WAYLIX_API_KEYS=key1,key2` to require `Authorization: Bearer` on writes.
+| POST | `/v1/devices` | `{platform, attestation?}` → `{deviceId, token, attested}` |
+
+**Identity.** Writes need `X-Waylix-Device: <token>` from `POST /v1/devices`; the server attributes every report to that device and ignores any `reporterId` the client sends. Settings: `WAYLIX_REQUIRE_DEVICE=0` (dev only), `WAYLIX_DEVICE_REG_PER_IP` (default 5 a day), `WAYLIX_REQUIRE_ATTESTATION=1`, `WAYLIX_DEVICE_SECRET`, `WAYLIX_TRUST_PROXY=1`. Set `WAYLIX_API_KEYS=key1,key2` to also require `Authorization: Bearer` on writes.
+
+**App build config.** Set `EXPO_PUBLIC_WAYLIX_API_URL` (e.g. in `eas.json` → `build.preview.env`) so devices reach your API.
 
 ## Free services and fair use
 
 The defaults are keyless community services: OpenFreeMap (tiles), FOSSGIS `routing.openstreetmap.de` (OSRM, **max ~1 request/second**) and komoot Photon (search). They are fine for development and pilots. **Self-host routing and search before a public launch** (`infra/`). Every endpoint can be changed in the app's settings. Map data © OpenStreetMap contributors (ODbL).
 
-## Known issues (v0.1 review, Nov 2026)
+## Changelog
 
-| ID | Issue | Severity |
-|---|---|---|
-| B1 | A synced report is missing from the map until the next pull (push response hazards are discarded) | High |
-| B2 | Navigation banner and ETA wait for the next GPS fix after Start; the GPS watch restarts on Start | High |
-| B3 | The final step text "You have arrived" is shown before arrival | High |
-| B4 | Reporter IDs are client-chosen, so the Sybil-resistance of fusion can be bypassed; the rate limiter trusts `X-Forwarded-For` | High |
-| B5 | No initial `getCurrentPosition` seed; non-permission errors are reported as "denied" | Medium |
-| B6 | Offline area cap (2,500 km² at z10–16) exceeds tile limits; size label rounds to "~0 km²" | Medium |
+**v0.2 (Nov 2026)** — fixes from the v0.1 review, each verified by tests and a fresh screenshot run:
 
-The full review, with all 14 items, is in the AIDotLix review doc.
+| ID | Fix |
+|---|---|
+| B1 | Synced reports appear immediately: the client merges the hazards returned by the push |
+| B2 | Navigation shows its banner and ETA the moment you press Start; the GPS watch is swapped make-before-break |
+| B3 | Upcoming arrival reads "Arrive at your destination"; "You have arrived" only on arrival |
+| B4 | Server-issued, HMAC-signed device identities; client-claimed reporter IDs are ignored; per-network registration limit; per-device write limit; `X-Forwarded-For` trusted only with `WAYLIX_TRUST_PROXY=1`; attestation hook |
+| B5 | Cold-start location seed via `getCurrentPosition`; "location unavailable" separated from "permission denied" |
+| B6 | Offline downloads show area, tile count and size before download, capped at 12,000 tiles |
+| B7, B11, B12 | Clear offline driving message; keep-awake errors handled; API URL from `EXPO_PUBLIC_WAYLIX_API_URL` |
+| B9, B10 | Navigation logic moved into the engine's tested `NavigationSession`; `useNavigation` hook; CI UI smoke test |
+
+**Still open:** platform attestation needs Play Integrity / App Attest credentials (the verifier hook is in `packages/server/src/devices.ts`); self-hosted routing and search (B8); non-colour hazard symbols (B13); moderation for sensitive hazard types (B14).
 
 ## Roadmap
 

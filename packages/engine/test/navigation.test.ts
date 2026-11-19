@@ -226,3 +226,19 @@ test('SyncClient keeps reports through outages and drains when back online', asy
   assert.equal(c2.getStatus().pending, 0);
   assert.equal(server.length, 2);
 });
+
+test('SyncClient shows accepted reports immediately from the push response (B1)', async () => {
+  const fused: Hazard = { ...new HazardFusionEngine().ingest(obs({ reporterId: 'me' }), T0).hazard };
+  const transport: SyncTransport = {
+    pushObservations: async (o) => ({ accepted: o.map((x) => x.id), rejected: [], hazards: [fused] }),
+    pushVotes: async (v) => ({ accepted: v.map((x) => x.id), rejected: [], hazards: [{ ...fused, status: 'resolved' }] }),
+    pullHazards: async () => ({ hazards: [], serverTime: T0 }),
+  };
+  const c = new SyncClient(transport, new MemoryStore());
+  await c.queueObservation(obs({ reporterId: 'me' }));
+  await c.flush();
+  assert.deepEqual(c.hazards().map((h) => h.id), [fused.id], 'visible without a pull');
+  await c.queueVote({ id: 'v1', hazardId: fused.id, reporterId: 'me', kind: 'dismiss', at: T0 });
+  await c.flush();
+  assert.equal(c.hazards().length, 0, 'resolved hazard removed immediately');
+});

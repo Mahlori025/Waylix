@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createApp } from './app.ts';
+import { DeviceRegistry } from './devices.ts';
 import { HazardService } from './service.ts';
 import { Store } from './store.ts';
 
@@ -9,13 +10,23 @@ const dbPath = process.env.WAYLIX_DB ?? './data/waylix.db';
 if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
 
 const store = new Store(dbPath);
+const devices = new DeviceRegistry(store, {
+  ...(process.env.WAYLIX_DEVICE_SECRET ? { secret: process.env.WAYLIX_DEVICE_SECRET } : {}),
+  perIpPerDay: Number(process.env.WAYLIX_DEVICE_REG_PER_IP ?? 5),
+  requireAttestation: process.env.WAYLIX_REQUIRE_ATTESTATION === '1',
+});
+// Secure by default: writes need a server-issued device token. Set WAYLIX_REQUIRE_DEVICE=0 for local seeding/dev.
+const requireDevice = process.env.WAYLIX_REQUIRE_DEVICE !== '0';
 const t0 = Date.now();
-const service = new HazardService(store);
+const service = new HazardService(store, Date.now, devices);
 console.log(`[waylix] replayed event log in ${Date.now() - t0} ms`, service.stats());
 
 const server = createApp(service, {
   apiKeys: (process.env.WAYLIX_API_KEYS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   rateLimitPerMin: Number(process.env.WAYLIX_RATE_LIMIT ?? 240),
+  devices,
+  requireDevice,
+  trustProxy: process.env.WAYLIX_TRUST_PROXY === '1',
   ...(process.env.WAYLIX_CORS_ORIGIN ? { corsOrigin: process.env.WAYLIX_CORS_ORIGIN } : {}),
 });
 
@@ -25,7 +36,7 @@ const sweeper = setInterval(() => {
 }, 5 * 60_000);
 sweeper.unref();
 
-server.listen(port, () => console.log(`[waylix] API listening on http://0.0.0.0:${port}`));
+server.listen(port, () => console.log(`[waylix] API listening on http://0.0.0.0:${port} (device tokens ${requireDevice ? 'required' : 'optional'})`));
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {

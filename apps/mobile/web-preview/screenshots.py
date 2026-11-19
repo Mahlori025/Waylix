@@ -9,6 +9,7 @@ External services the sandbox cannot reach are handled explicitly:
   - OSRM routing   -> aborted, so the app exercises its real offline fallback
 """
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -45,7 +46,7 @@ def lerp(a, b, t):
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
+        browser = p.chromium.launch(executable_path=os.environ.get("CHROME_PATH", "/usr/bin/google-chrome"), args=["--no-sandbox"])
         ctx = browser.new_context(
             viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=False,
             geolocation={"longitude": START[0], "latitude": START[1], "accuracy": 6}, permissions=["geolocation"],

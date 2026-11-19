@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { ENGINE_VERSION, isValidLngLat, type BBox, type Domain, type LngLat } from '@waylix/engine';
+import { RegistrationError, type DeviceRegistry } from './devices.ts';
 import type { HazardService } from './service.ts';
 
 export interface AppOptions {
@@ -9,6 +10,14 @@ export interface AppOptions {
   rateLimitPerMin?: number;
   maxBodyBytes?: number;
   corsOrigin?: string;
+  /** Issues and verifies device tokens (`POST /v1/devices`, `X-Waylix-Device` header). */
+  devices?: DeviceRegistry;
+  /** Reject observation/vote writes without a valid device token. */
+  requireDevice?: boolean;
+  /** Read the client IP from X-Forwarded-For (only behind a trusted reverse proxy). */
+  trustProxy?: boolean;
+  /** Writes per minute per device. */
+  deviceWritesPerMin?: number;
 }
 
 class HttpError extends Error {
@@ -22,17 +31,19 @@ const DOMAINS: Domain[] = ['road', 'walkway', 'air'];
 export function createApp(service: HazardService, opts: AppOptions = {}): Server {
   const maxBody = opts.maxBodyBytes ?? 512 * 1024;
   const limiter = new RateLimiter(opts.rateLimitPerMin ?? 240);
+  const deviceLimiter = new RateLimiter(opts.deviceWritesPerMin ?? 30);
   const keys = new Set(opts.apiKeys?.filter(Boolean) ?? []);
 
   return createServer(async (req, res) => {
     const started = Date.now();
     res.setHeader('Access-Control-Allow-Origin', opts.corsOrigin ?? '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Waylix-Device');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     try {
       if (req.method === 'OPTIONS') return send(res, 204, null);
-      const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+      const forwarded = opts.trustProxy ? (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() : undefined;
+      const ip = forwarded || req.socket.remoteAddress || 'unknown';
       if (!limiter.take(ip)) throw new HttpError(429, 'rate limit exceeded');
       const url = new URL(req.url ?? '/', 'http://localhost');
       const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -49,17 +60,32 @@ export function createApp(service: HazardService, opts: AppOptions = {}): Server
       if (req.method === 'GET' && path === '/v1/taxonomy') {
         return send(res, 200, { types: service.taxonomy.list() });
       }
-      if (req.method === 'POST' && path === '/v1/observations') {
-        const body = await readJson(req, maxBody);
-        const list = (body as { observations?: unknown }).observations;
-        if (!Array.isArray(list) || list.length === 0 || list.length > 200) throw new HttpError(400, 'observations must be an array of 1..200 items');
-        return send(res, 200, service.ingestObservations(list));
+      if (req.method === 'POST' && path === '/v1/devices') {
+        if (!opts.devices) throw new HttpError(404, 'device registration is not enabled');
+        const body = (await readJson(req, 4096)) as { platform?: unknown; attestation?: unknown };
+        const platform = typeof body.platform === 'string' && /^(android|ios|web|drone|other)$/.test(body.platform) ? body.platform : 'other';
+        const attestation = typeof body.attestation === 'string' && body.attestation.length < 16_384 ? body.attestation : undefined;
+        try {
+          return send(res, 201, await opts.devices.register(ip, platform, attestation));
+        } catch (e) {
+          if (e instanceof RegistrationError) throw new HttpError(e.status, e.message);
+          throw e;
+        }
       }
-      if (req.method === 'POST' && path === '/v1/votes') {
+      if (req.method === 'POST' && (path === '/v1/observations' || path === '/v1/votes')) {
+        const device = opts.devices?.verify(req.headers['x-waylix-device'] as string | undefined) ?? null;
+        if (opts.requireDevice && !device) throw new HttpError(401, 'missing or invalid device token (register via POST /v1/devices)');
+        if (device && !deviceLimiter.take(device.deviceId)) throw new HttpError(429, 'device write limit exceeded');
+        const ctx = device ? { deviceId: device.deviceId } : {};
         const body = await readJson(req, maxBody);
+        if (path === '/v1/observations') {
+          const list = (body as { observations?: unknown }).observations;
+          if (!Array.isArray(list) || list.length === 0 || list.length > 200) throw new HttpError(400, 'observations must be an array of 1..200 items');
+          return send(res, 200, service.ingestObservations(list, ctx));
+        }
         const list = (body as { votes?: unknown }).votes;
         if (!Array.isArray(list) || list.length === 0 || list.length > 200) throw new HttpError(400, 'votes must be an array of 1..200 items');
-        return send(res, 200, service.applyVotes(list));
+        return send(res, 200, service.applyVotes(list, ctx));
       }
       if (req.method === 'GET' && (path === '/v1/hazards' || path === '/v1/hazards.geojson')) {
         const q = parseHazardQuery(url.searchParams);

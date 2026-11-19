@@ -64,7 +64,7 @@ export function SettingsSheet({ visible, onClose, status, onOffline }: { visible
         <Text style={s.reset}>Reset servers to defaults</Text>
       </Pressable>
       <Text style={s.footer}>
-        Waylix v0.1 · an AIDotLix product{'\n'}Map data © OpenStreetMap contributors · Tiles: OpenFreeMap · Routing: OSRM / FOSSGIS{'\n'}Anonymous ID: {st.reporterId.slice(0, 13)}…
+        Waylix v0.2 · an AIDotLix product{'\n'}Map data © OpenStreetMap contributors · Tiles: OpenFreeMap · Routing: OSRM / FOSSGIS{'\n'}{st.deviceToken ? `Device ID: ${st.reporterId.slice(0, 12)}… (server-issued)` : 'Device not registered yet — registers on your first report'}
       </Text>
     </Sheet>
   );

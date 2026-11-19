@@ -257,5 +257,6 @@ export const OfflineManager = {
   getPacks: async (): Promise<OfflinePack[]> => [],
   createPack: async () => { throw new Error('Offline map packs need the native Android/iOS build'); },
   deletePack: async () => undefined,
+  setTileCountLimit: (_n: number) => undefined,
 };
 export type ViewStateChangeEvent = { center: LngLat; zoom: number; bounds: Bounds };

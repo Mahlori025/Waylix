@@ -31,6 +31,11 @@ export class ReputationLedger {
     return mean >= 0.5 ? 1 + 2 * (mean - 0.5) : 0.25 + 1.5 * mean;
   }
 
+  /** Set a starting prior for a reporter we have no history for yet (no-op otherwise). */
+  seed(reporterId: string, prior: ReputationRecord): void {
+    if (!this.records.has(reporterId)) this.records.set(reporterId, { ...prior });
+  }
+
   /** Record that a reporter's claim was borne out (true) or contradicted (false). */
   record(reporterId: string, correct: boolean, weight = 1): ReputationRecord {
     const r = this.get(reporterId);

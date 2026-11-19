@@ -84,3 +84,16 @@ test('SpatialIndex radius and bbox queries', () => {
   idx.remove('p1');
   assert.equal(idx.size, 99);
 });
+
+test('tile maths for offline downloads (B6)', async () => {
+  const { tileOf, tileCount, bboxAreaKm2 } = await import('../src/index.ts');
+  assert.deepEqual(tileOf([0, 0], 1), [1, 1]);
+  assert.deepEqual(tileOf([-180, 85], 2), [0, 0]);
+  // ~7 km x 7 km around the Johannesburg CBD
+  const box: [number, number, number, number] = [28.01, -26.23, 28.08, -26.17];
+  const km2 = bboxAreaKm2(box);
+  assert.ok(km2 > 40 && km2 < 50, `area ${km2}`);
+  const n = tileCount(box, 10, 16);
+  assert.ok(n > 100 && n < 400, `tiles ${n}`);
+  assert.ok(tileCount(box, 10, 16) < tileCount([27.5, -26.7, 28.5, -25.7], 10, 16));
+});

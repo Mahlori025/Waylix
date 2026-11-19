@@ -25,6 +25,10 @@ export async function getLastKnownPositionAsync(): Promise<LocationObject | null
   return null; // mirrors a cold-start phone
 }
 
+export async function getCurrentPositionAsync(): Promise<LocationObject> {
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition((p) => resolve(toObj(p)), reject, { enableHighAccuracy: true }));
+}
+
 export async function watchPositionAsync(_opts: unknown, cb: (l: LocationObject) => void): Promise<LocationSubscription> {
   const id = navigator.geolocation.watchPosition((p) => cb(toObj(p)), () => undefined, { enableHighAccuracy: true, maximumAge: 0 });
   return { remove: () => navigator.geolocation.clearWatch(id) };

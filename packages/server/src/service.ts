@@ -14,9 +14,17 @@ import {
   type PushResult,
   type Vote,
 } from '@waylix/engine';
+import type { DeviceRegistry } from './devices.ts';
 import type { Store } from './store.ts';
 
 const ALL_STATUSES: HazardStatus[] = ['candidate', 'active', 'verified', 'expired', 'resolved'];
+/** Starting prior for devices that registered without platform attestation (trust ≈ 0.81 vs 1.0). */
+const UNATTESTED_PRIOR = { alpha: 1.5, beta: 2.5 };
+
+export interface WriteContext {
+  /** Server-verified device id; when set it replaces any client-claimed reporterId. */
+  deviceId?: string;
+}
 
 /** Server-side façade: validation → engine → durable log → projection. */
 export class HazardService {
@@ -24,7 +32,7 @@ export class HazardService {
   readonly engine: HazardFusionEngine;
   private pendingId: string | undefined;
 
-  constructor(private readonly store: Store, private readonly clock: () => number = Date.now) {
+  constructor(private readonly store: Store, private readonly clock: () => number = Date.now, private readonly devices?: DeviceRegistry) {
     this.engine = new HazardFusionEngine({
       taxonomy: this.taxonomy,
       // During replay we force the hazard id recorded in the log, so ids are stable across restarts.
@@ -35,6 +43,7 @@ export class HazardService {
 
   private replay(): void {
     for (const ev of this.store.events()) {
+      this.seedReporter(ev.item.reporterId);
       if (ev.kind === 'observation') {
         this.pendingId = ev.hazardId;
         this.engine.ingest(ev.item, ev.receivedAt);
@@ -46,7 +55,13 @@ export class HazardService {
     this.sweep();
   }
 
-  ingestObservations(input: unknown[]): PushResult & { hazards: Hazard[] } {
+  private seedReporter(reporterId: string): void {
+    if (this.devices && reporterId.startsWith('dev_') && !this.devices.isAttested(reporterId)) {
+      this.engine.reputation.seed(reporterId, UNATTESTED_PRIOR);
+    }
+  }
+
+  ingestObservations(input: unknown[], ctx: WriteContext = {}): PushResult & { hazards: Hazard[] } {
     const now = this.clock();
     const accepted: string[] = [];
     const rejected: PushResult['rejected'] = [];
@@ -59,6 +74,8 @@ export class HazardService {
         continue;
       }
       const o = sanitizeObservation(raw as Observation);
+      if (ctx.deviceId) o.reporterId = ctx.deviceId;
+      this.seedReporter(o.reporterId);
       const r = this.engine.ingest(o, now);
       if (!r.duplicate) this.store.insertObservation(o, r.hazard.id, now);
       accepted.push(o.id);
@@ -68,7 +85,7 @@ export class HazardService {
     return { accepted, rejected, hazards: [...touched.values()] };
   }
 
-  applyVotes(input: unknown[]): PushResult & { hazards: Hazard[] } {
+  applyVotes(input: unknown[], ctx: WriteContext = {}): PushResult & { hazards: Hazard[] } {
     const now = this.clock();
     const accepted: string[] = [];
     const rejected: PushResult['rejected'] = [];
@@ -80,7 +97,8 @@ export class HazardService {
         rejected.push({ id, errors });
         continue;
       }
-      const v = raw as Vote;
+      const v: Vote = { ...(raw as Vote), ...(ctx.deviceId ? { reporterId: ctx.deviceId } : {}) };
+      this.seedReporter(v.reporterId);
       const h = this.engine.vote(v, now);
       if (!h) {
         rejected.push({ id: v.id, errors: ['unknown hazard'] });

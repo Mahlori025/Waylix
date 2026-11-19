@@ -1,8 +1,8 @@
 {
   "name": "waylix",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Waylix by AIDotLix — free & offline maps, drive/walk navigation and crowd-sensed hazard intelligence on a platform-agnostic engine.",
+  "description": "Waylix by AIDotLix \u2014 free & offline maps, drive/walk navigation and crowd-sensed hazard intelligence on a platform-agnostic engine.",
   "license": "UNLICENSED",
   "workspaces": [
     "packages/engine",

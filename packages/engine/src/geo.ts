@@ -168,3 +168,31 @@ export function isValidLngLat(p: unknown): p is LngLat {
     p[1] <= 90
   );
 }
+
+/** Web-Mercator XYZ tile index containing a point at zoom z. */
+export function tileOf(p: LngLat, z: number): [x: number, y: number] {
+  const n = 2 ** z;
+  const lat = Math.max(-85.05112878, Math.min(85.05112878, p[1]));
+  const s = Math.sin(toRad(lat));
+  const x = Math.floor(((p[0] + 180) / 360) * n);
+  const y = Math.floor((0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n);
+  return [Math.min(n - 1, Math.max(0, x)), Math.min(n - 1, Math.max(0, y))];
+}
+
+/** Number of map tiles an offline download of `bbox` needs across [minZoom, maxZoom]. */
+export function tileCount(bbox: BBox, minZoom: number, maxZoom: number): number {
+  let total = 0;
+  for (let z = minZoom; z <= maxZoom; z++) {
+    const [x0, y0] = tileOf([bbox[0], bbox[3]], z);
+    const [x1, y1] = tileOf([bbox[2], bbox[1]], z);
+    total += (x1 - x0 + 1) * (y1 - y0 + 1);
+  }
+  return total;
+}
+
+/** Area of a bbox in km² (equirectangular approximation, fine below ~100 km). */
+export function bboxAreaKm2(b: BBox): number {
+  const w = haversine([b[0], (b[1] + b[3]) / 2], [b[2], (b[1] + b[3]) / 2]);
+  const h = haversine([b[0], b[1]], [b[0], b[3]]);
+  return (w * h) / 1e6;
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { OfflineManager, type OfflinePack } from '@maplibre/maplibre-react-native';
-import { haversine, type BBox } from '@waylix/engine';
+import { bboxAreaKm2, tileCount, type BBox } from '@waylix/engine';
 import { OFFLINE } from '../config';
 import { colors, radius } from '../theme';
 import { Sheet } from './Sheet';
@@ -14,11 +14,15 @@ interface PackRow {
   state: string;
 }
 
-function areaKm2(b: BBox): number {
-  const w = haversine([b[0], (b[1] + b[3]) / 2], [b[2], (b[1] + b[3]) / 2]);
-  const h = haversine([b[0], b[1]], [b[0], b[3]]);
-  return (w * h) / 1e6;
+let tileLimitSet = false;
+
+/** What a download of `b` would cost, shown before the user commits. */
+export function estimateDownload(b: BBox): { km2: number; tiles: number; mb: number; tooBig: boolean } {
+  const tiles = tileCount(b, OFFLINE.minZoom, OFFLINE.maxZoom);
+  return { km2: bboxAreaKm2(b), tiles, mb: (tiles * OFFLINE.avgTileKb) / 1024, tooBig: tiles > OFFLINE.maxTiles };
 }
+
+const fmtArea = (km2: number) => (km2 < 10 ? km2.toFixed(1) : Math.round(km2).toString());
 
 async function rowOf(p: OfflinePack): Promise<PackRow> {
   const st = await p.status();
@@ -62,14 +66,25 @@ export function OfflineSheet({
   }, []);
 
   useEffect(() => {
-    if (visible) void reload();
+    if (!visible) return;
+    if (!tileLimitSet) {
+      try {
+        OfflineManager.setTileCountLimit(OFFLINE.maxTiles);
+      } catch {
+        // older native module: default limit applies
+      }
+      tileLimitSet = true;
+    }
+    void reload();
   }, [visible, reload]);
+
+  const estimate = viewport ? estimateDownload(viewport) : undefined;
 
   const download = async () => {
     if (!viewport) return;
-    const km2 = areaKm2(viewport);
-    if (km2 > OFFLINE.maxAreaKm2) {
-      Alert.alert('Area too large', `Zoom in a bit — offline areas are limited to ${OFFLINE.maxAreaKm2} km² (this is ${Math.round(km2)} km²).`);
+    const est = estimateDownload(viewport);
+    if (est.tooBig) {
+      Alert.alert('Area too large', `This area needs about ${est.tiles.toLocaleString()} map tiles; the limit is ${OFFLINE.maxTiles.toLocaleString()}. Zoom in and save it in parts.`);
       return;
     }
     setBusy(true);
@@ -105,9 +120,14 @@ export function OfflineSheet({
         Saves the area currently on screen (zoom {OFFLINE.minZoom}–{OFFLINE.maxZoom}) plus its known hazards. Maps, hazard alerts and any route you planned keep working without signal.
       </Text>
       <TextInput value={name} onChangeText={setName} placeholder="Name this area (e.g. Soweto)" placeholderTextColor={colors.inkSoft} style={s.input} />
-      <Pressable style={[s.btn, (!viewport || busy) && { opacity: 0.5 }]} disabled={!viewport || busy} onPress={download}>
-        <Text style={s.btnText}>{busy ? 'Starting…' : `Download visible area${viewport ? ` (~${Math.round(areaKm2(viewport))} km²)` : ''}`}</Text>
+      <Pressable style={[s.btn, (!viewport || busy || estimate?.tooBig) && { opacity: 0.5 }]} disabled={!viewport || busy || estimate?.tooBig} onPress={download}>
+        <Text style={s.btnText}>{busy ? 'Starting…' : estimate?.tooBig ? 'Area too large — zoom in' : 'Download visible area'}</Text>
       </Pressable>
+      {estimate ? (
+        <Text style={s.estimate}>
+          ~{fmtArea(estimate.km2)} km² · {estimate.tiles.toLocaleString()} tiles · about {estimate.mb < 1 ? '<1' : Math.round(estimate.mb)} MB
+        </Text>
+      ) : null}
       <Text style={s.section}>Saved areas</Text>
       {packs.length === 0 ? <Text style={s.help}>None yet.</Text> : null}
       {packs.map((p) => (
@@ -132,6 +152,7 @@ const s = StyleSheet.create({
   input: { borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.sm, padding: 12, color: colors.ink },
   btn: { backgroundColor: colors.brand, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
   btnText: { color: '#fff', fontWeight: '700' },
+  estimate: { color: colors.inkSoft, textAlign: 'center', marginTop: 8, fontSize: 13 },
   section: { fontWeight: '700', fontSize: 15, marginTop: 20, marginBottom: 8, color: colors.ink },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   name: { fontWeight: '600', color: colors.ink },

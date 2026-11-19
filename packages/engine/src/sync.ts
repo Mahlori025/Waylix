@@ -6,6 +6,8 @@ export interface PushResult {
   accepted: string[];
   /** Ids the server rejected permanently (validation); drop them. */
   rejected: Array<{ id: string; errors: string[] }>;
+  /** Current state of the hazards the pushed items touched (the Waylix API returns these). */
+  hazards?: Hazard[];
 }
 
 export interface PullResult {
@@ -19,10 +21,40 @@ export interface SyncTransport {
   pullHazards(bbox: BBox, since?: number): Promise<PullResult>;
 }
 
+/** Supplies the server-issued device token for writes (registering lazily if needed). */
+export interface DeviceAuth {
+  token(): Promise<string | undefined>;
+  /** Called when the server rejects the token (revoked, or server secret rotated). */
+  invalidate?(): Promise<void>;
+}
+
+export interface RegisteredDevice {
+  deviceId: string;
+  token: string;
+  attested: boolean;
+}
+
+/** Register this device with a Waylix API and receive its signed identity. */
+export async function registerDevice(
+  baseUrl: string,
+  platform: 'android' | 'ios' | 'web' | 'drone' | 'other',
+  fetchImpl?: FetchLike,
+  attestation?: string,
+): Promise<RegisteredDevice> {
+  const f = fetchImpl ?? defaultFetch();
+  const res = await f(`${baseUrl.replace(/\/$/, '')}/v1/devices`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, ...(attestation ? { attestation } : {}) }),
+  });
+  if (!res.ok) throw new Error(`device registration → HTTP ${res.status}`);
+  return (await res.json()) as RegisteredDevice;
+}
+
 /** REST transport for the Waylix API server. */
 export class HttpSyncTransport implements SyncTransport {
   private readonly fetch: FetchLike;
-  constructor(private readonly baseUrl: string, fetchImpl?: FetchLike, private readonly apiKey?: string) {
+  constructor(private readonly baseUrl: string, fetchImpl?: FetchLike, private readonly apiKey?: string, private readonly device?: DeviceAuth) {
     this.fetch = fetchImpl ?? defaultFetch();
   }
 
@@ -31,7 +63,10 @@ export class HttpSyncTransport implements SyncTransport {
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
-    const res = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}${path}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+    const token = await this.device?.token().catch(() => undefined);
+    const headers = { ...this.headers(), ...(token ? { 'X-Waylix-Device': token } : {}) };
+    const res = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    if (res.status === 401 && token) await this.device?.invalidate?.();
     if (!res.ok) throw new Error(`POST ${path} → HTTP ${res.status}`);
     return (await res.json()) as T;
   }
@@ -140,16 +175,21 @@ export class SyncClient {
         const obs = batch.filter((b): b is Extract<OutboxItem, { kind: 'observation' }> => b.kind === 'observation').map((b) => b.item);
         const votes = batch.filter((b): b is Extract<OutboxItem, { kind: 'vote' }> => b.kind === 'vote').map((b) => b.item);
         const done = new Set<string>();
+        let touched = false;
         if (obs.length) {
           const r = await this.transport.pushObservations(obs);
           r.accepted.forEach((id) => done.add(id));
           r.rejected.forEach((x) => done.add(x.id));
+          touched = this.mergeHazards(r.hazards) || touched;
         }
         if (votes.length) {
           const r = await this.transport.pushVotes(votes);
           r.accepted.forEach((id) => done.add(id));
           r.rejected.forEach((x) => done.add(x.id));
+          touched = this.mergeHazards(r.hazards) || touched;
         }
+        // Show accepted reports immediately instead of waiting for the next pull.
+        if (touched) await this.persistCache();
         const before = this.outbox.length;
         this.outbox = this.outbox.filter((b) => !done.has(b.item.id));
         await this.persistOutbox();
@@ -170,12 +210,9 @@ export class SyncClient {
     try {
       const since = this.pullCursor.get(key);
       const r = await this.transport.pullHazards(bbox, since);
-      for (const h of r.hazards) {
-        if (h.status === 'expired' || h.status === 'resolved') this.cache.delete(h.id);
-        else this.cache.set(h.id, h);
-      }
+      this.mergeHazards(r.hazards);
       this.pullCursor.set(key, r.serverTime);
-      await this.store.set(SyncClient.CACHE, JSON.stringify([...this.cache.values()].slice(-20_000)));
+      await this.persistCache();
       this.status = { ...this.status, online: true, lastPullAt: Date.now() };
       delete this.status.lastError;
     } catch (e) {
@@ -183,6 +220,20 @@ export class SyncClient {
     }
     this.emit();
     return this.hazards();
+  }
+
+  /** Apply server hazard states to the cache; closed hazards are dropped. */
+  private mergeHazards(hazards: readonly Hazard[] | undefined): boolean {
+    if (!hazards?.length) return false;
+    for (const h of hazards) {
+      if (h.status === 'expired' || h.status === 'resolved') this.cache.delete(h.id);
+      else this.cache.set(h.id, h);
+    }
+    return true;
+  }
+
+  private async persistCache(): Promise<void> {
+    await this.store.set(SyncClient.CACHE, JSON.stringify([...this.cache.values()].slice(-20_000)));
   }
 
   private async persistOutbox(): Promise<void> {

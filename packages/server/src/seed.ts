@@ -1,6 +1,7 @@
 /**
  * Seeds a running Waylix API with demo reports around Johannesburg so the
  * app has something to show. Usage: npm run seed -- http://localhost:8787
+ * (start the dev server with WAYLIX_REQUIRE_DEVICE=0: demo reporters have no device tokens)
  */
 import { HttpSyncTransport, destination, uuid, type LngLat, type Observation } from '@waylix/engine';
 
@@ -37,5 +38,11 @@ for (const s of spots) {
   }
 }
 
-const r = await t.pushObservations(observations);
+const r = await t.pushObservations(observations).catch((e: unknown) => {
+  if (String(e).includes('401')) {
+    console.error('The API requires device tokens. Seed demo data against a dev server started with WAYLIX_REQUIRE_DEVICE=0.');
+    process.exit(1);
+  }
+  throw e;
+});
 console.log(`seeded ${r.accepted.length} observations (${r.rejected.length} rejected) into ${base}`);

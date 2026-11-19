@@ -4,7 +4,10 @@ import { DEFAULTS } from '../config';
 import { asyncStore } from './storage';
 
 export interface Settings {
+  /** Server-issued device id once registered; a local anonymous id before that. */
   reporterId: string;
+  /** Signed device token from POST /v1/devices (empty until registered). */
+  deviceToken: string;
   apiUrl: string;
   styleUrl: string;
   driveRoutingUrl: string;
@@ -19,6 +22,7 @@ const KEY = 'waylix.settings.v1';
 
 let state: Settings = {
   reporterId: '',
+  deviceToken: '',
   apiUrl: DEFAULTS.apiUrl,
   styleUrl: DEFAULTS.styleUrl,
   driveRoutingUrl: DEFAULTS.driveRoutingUrl,

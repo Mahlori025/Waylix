@@ -1,6 +1,6 @@
 {
   "name": "@waylix/server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Waylix API \u2014 ingests observations from phones, vehicles and drones and serves fused hazards.",
   "type": "module",
@@ -18,7 +18,7 @@
     "test": "node --disable-warning=ExperimentalWarning --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@waylix/engine": "0.1.0"
+    "@waylix/engine": "0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

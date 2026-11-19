@@ -2,7 +2,7 @@
 
 ### Can Crowd-Sensed Road Hazards Ground Outdoor Augmented Reality? Four Research Questions Answered with Waylix, and an Outlook on Visual Positioning
 
-**AIDotLix White Paper · WP-2026-03 · Version 1.2 · November 2026**
+**AIDotLix White Paper · WP-2026-03 · Version 1.3 · November 2026**
 Author: Mahlori Lloyd Chauke (AIDotLix), Johannesburg, South Africa
 
 ---
@@ -48,7 +48,7 @@ $$
 
 Each reporter's latest statement *e* counts once, which resists spam. Its sign *s* is positive for a report or confirmation and negative for a dismissal. Its weight *w* reflects the source (manual 1.2, accelerometer 0.45, drone camera 1.0). The evidence decays with a half-life *τ* specific to the hazard type, so an accident fades in hours and a pothole lasts for weeks. Reporter trust *T* comes from a Beta reputation posterior [18], the same family of ideas as recent reputation-based truth discovery in mobile crowdsensing [15].
 
-Position is fused by inverse-variance weighting, and the same principle blends GNSS and, in future, VPS fixes on the device. A hazard therefore carries two numbers AR can use: *P(h)* and a positional spread σ. The engine runs identically on the phone (offline) and on the server, and 43 automated tests cover its behaviour.
+Position is fused by inverse-variance weighting, and the same principle blends GNSS and, in future, VPS fixes on the device. A hazard therefore carries two numbers AR can use: *P(h)* and a positional spread σ. The engine runs identically on the phone (offline) and on the server, and 56 automated tests cover the engine and API.
 
 ## 5. Findings
 
@@ -135,9 +135,9 @@ To test the RQ3 rules, I will run a within-subjects study with pedestrians in Jo
 
 ## 8. Limitations
 
-**Implementation status.** An internal review of v0.1 (November 2026) confirmed the core: all 43 automated tests pass, both mobile bundles compile, and the scripted run reproduced the paper's behaviour in the live app. A walker's route through Braamfontein listed both known hazards on the way, and the alert fired "Pothole ahead in 40 m" at the predicted distance. The same run exposed three interface defects, each now scheduled for a fix: a newly synced report missing from the map until the next pull, a navigation banner that waited for the next GPS fix, and arrival wording shown too early. No native build has yet run on a physical phone, so sensor and offline-map behaviour remains unverified.
+**Implementation status.** An internal review of v0.1 (November 2026) confirmed the core: the automated tests passed, both mobile bundles compiled, and the scripted run reproduced the paper's behaviour in the live app. A walker's route through Braamfontein listed both known hazards on the way, and the alert fired "Pothole ahead in 40 m" at the predicted distance. The same run exposed three interface defects: a newly synced report missing from the map until the next pull, a navigation banner that waited for the next GPS fix, and arrival wording shown too early. Version 0.2 fixes all three, and a fresh scripted run confirms each fix on screen. It also moves the turn-by-turn logic into a tested engine component, so the same session logic can later drive an AR view. No native build has yet run on a physical phone, so sensor and offline-map behaviour remains unverified.
 
-**Identity is the weakest assumption.** Spam resistance in Section 4 counts each *reporter ID* once, but in v0.1 the client chooses its own anonymous ID. One person minting IDs could verify a false hazard with three of them, or resolve a real one with two dismissals. This is a Sybil attack, and it bounds every confidence figure in this paper. Reputation-based truth discovery [15] assumes identities are costly to create. Waylix will therefore anchor IDs to server-issued device tokens with platform attestation before any public pilot.
+**Identity is the weakest assumption.** Spam resistance in Section 4 counts each *reporter ID* once, but in v0.1 the client chose its own anonymous ID. One person minting IDs could verify a false hazard with three of them, or resolve a real one with two dismissals. This is a Sybil attack, and it bounds every confidence figure in this paper, because reputation-based truth discovery [15] assumes identities are costly to create. Version 0.2 raises that cost in three ways. Identities are now issued and signed by the server, and any ID the client claims is ignored. Each network may register only a few devices per day. And devices without platform attestation start at lower trust, so three of them can no longer verify a hazard alone (an automated test checks this). The residual risk is someone with many networks or many genuine phones. Closing it needs the attestation hook wired to Google Play Integrity and Apple App Attest, which is the remaining requirement before a public pilot.
 
 **Model and data.** My registration figures rest on simulation with an optimistic GNSS model. Real smartphone errors are larger, heavier-tailed and correlated between nearby reporters [19], [20], which would slow the 1/√*n* gain and strengthen the case for VPS. The source weights and decay half-lives are engineering priors that need field calibration. Accelerometer evidence cannot yet tell a pothole from a speed bump, a known weakness that motivates multi-sensor fusion [12]. The AR rendering layer and the VPS phases are designed, not yet built. Waylix today delivers the fusion engine, the hazard map, offline navigation and audio alerts on which they will sit.
 

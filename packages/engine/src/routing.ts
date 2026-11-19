@@ -99,7 +99,7 @@ export function osrmInstruction(s: OsrmStep): string {
   const dir = modifier ? modifier.replace('slight ', 'slightly ').replace('sharp ', 'sharp ') : '';
   switch (type) {
     case 'depart': return `Head out${s.name ? ` on ${s.name}` : ''}`;
-    case 'arrive': return 'You have arrived';
+    case 'arrive': return 'Arrive at your destination';
     case 'turn': case 'end of road': case 'fork':
       return dir === 'straight' ? `Continue straight${onto}` : `Turn ${dir}${onto}`;
     case 'merge': return `Merge${onto}`;
@@ -143,7 +143,7 @@ export class DirectLineProvider implements RoutingProvider {
       provider: this.name,
       steps: [
         { instruction: `Head ${compass(brg)} (${brg}°) — direct line`, maneuver: 'depart', name: '', distanceM: d, durationS: d / speed, location: req.from },
-        { instruction: 'You have arrived', maneuver: 'arrive', name: '', distanceM: 0, durationS: 0, location: req.to },
+        { instruction: 'Arrive at your destination', maneuver: 'arrive', name: '', distanceM: 0, durationS: 0, location: req.to },
       ],
     }];
   }

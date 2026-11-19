@@ -25,3 +25,39 @@ jobs:
         run: |
           npx expo export --platform android --output-dir /tmp/export-android
           npx expo export --platform ios --output-dir /tmp/export-ios
+
+  ui-smoke:
+    # Drives the real app UI (react-native-web) against a live API and saves screenshots.
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npm run build
+      - name: Seed a dev API, then restart it with device tokens required
+        run: |
+          (cd packages/server && WAYLIX_DB=/tmp/api.db WAYLIX_REQUIRE_DEVICE=0 node dist/index.js &) && sleep 2
+          npm run seed -w @waylix/server -- http://127.0.0.1:8787
+          pkill -f "dist/index.js"; sleep 1
+          (cd packages/server && WAYLIX_DB=/tmp/api.db node dist/index.js > /tmp/api.log 2>&1 &) && sleep 2
+      - name: Build and serve the web preview
+        working-directory: apps/mobile
+        run: |
+          npx expo export --platform web --output-dir /tmp/wl-web
+          (python3 -m http.server 8081 -d /tmp/wl-web &) && sleep 1
+      - name: Run the screenshot flow
+        run: |
+          pip install playwright==1.*
+          CHROME_PATH=$(which google-chrome) python3 apps/mobile/web-preview/screenshots.py /tmp/screens
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: waylix-screens
+          path: /tmp/screens

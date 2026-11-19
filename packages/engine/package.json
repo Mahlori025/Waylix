@@ -1,6 +1,6 @@
 {
   "name": "@waylix/engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Waylix Hazard Fusion Engine \u2014 platform-agnostic geospatial event engine for vehicles, pedestrians and drones. Zero runtime dependencies.",
   "type": "module",
   "main": "./dist/index.js",

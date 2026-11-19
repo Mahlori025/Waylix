@@ -5,22 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Speech from 'expo-speech';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  NavigationTracker,
-  analyzeRoute,
-  bboxOf,
-  hazardAwareRoute,
-  uuid,
-  type BBox,
-  type HazardAlert,
-  type LngLat,
-  type NavigationState,
-  type Observation,
-  type Place,
-  type RankedRoute,
-  type Route,
-  type TravelMode,
-} from '@waylix/engine';
+import { analyzeRoute, bboxOf, uuid, type BBox, type HazardAlert, type LngLat, type Observation, type Place, type TravelMode } from '@waylix/engine';
 import { AlertBanner, NavBanner, NavFooter } from '../components/NavBanner';
 import { HazardCard } from '../components/HazardCard';
 import { HazardLayer } from '../components/HazardLayer';
@@ -34,11 +19,12 @@ import { DEFAULTS } from '../config';
 import { useBumpDetection } from '../hooks/useBumpDetection';
 import { useHazards } from '../hooks/useHazards';
 import { useLocation } from '../hooks/useLocation';
+import { useNavigation } from '../hooks/useNavigation';
 import { useSettings } from '../services/settings';
 import { services } from '../services/waylix';
 import { colors, radius, shadow } from '../theme';
 
-type Phase = 'browse' | 'preview' | 'navigate';
+const KEEP_AWAKE_TAG = 'waylix-nav';
 
 export function MapScreen() {
   const insets = useSafeAreaInsets();
@@ -47,26 +33,13 @@ export function MapScreen() {
   const { sync, router, geocoder, alerts } = svc;
 
   const [mode, setMode] = useState<TravelMode>('drive');
-  const [phase, setPhase] = useState<Phase>('browse');
-  const [routes, setRoutes] = useState<RankedRoute<Route>[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState(0);
-  const [nav, setNav] = useState<NavigationState>();
   const [alert, setAlert] = useState<HazardAlert>();
   const [toast, setToast] = useState<string>();
   const [selectedHazard, setSelectedHazard] = useState<string>();
   const [reportAt, setReportAt] = useState<LngLat | 'here' | undefined>();
   const [sheet, setSheet] = useState<'settings' | 'offline' | undefined>();
   const [viewport, setViewport] = useState<BBox>();
-  const [routing, setRouting] = useState(false);
-  const destination = useRef<Place | undefined>(undefined);
-
-  const { fix, permission } = useLocation(phase === 'navigate' || settings.autoDetectPotholes);
-  const { hazards, status, refresh } = useHazards(sync);
   const camera = useRef<CameraRef>(null);
-  const tracker = useRef<NavigationTracker | undefined>(undefined);
-  const lastSpokenStep = useRef(-1);
-  const offRouteCount = useRef(0);
-  const lastReroute = useRef(0);
 
   const say = useCallback((text: string, urgent = false) => {
     if (!settings.voice) return;
@@ -78,6 +51,20 @@ export function MapScreen() {
     setToast(msg);
     setTimeout(() => setToast((t) => (t === msg ? undefined : t)), 3500);
   }, []);
+
+  const showAlert = useCallback((a: HazardAlert) => {
+    setAlert(a);
+    if (a.level === 'warning') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+    setTimeout(() => setAlert((cur) => (cur?.hazard.id === a.hazard.id ? undefined : cur)), 6000);
+  }, []);
+
+  const navigation = useNavigation({ router, alerts, avoidHazards: settings.avoidHazards, say, onAlert: showAlert });
+  const { phase, routes, selected: selectedRoute, setSelected: setSelectedRoute, nav, routing } = navigation;
+
+  const { fix, permission } = useLocation(phase === 'navigate' || settings.autoDetectPotholes);
+  const { hazards, status, refresh } = useHazards(sync);
+  const hazardsRef = useRef(hazards);
+  hazardsRef.current = hazards;
 
   // ── Sync: pull hazards for the viewport, push the outbox ─────────────────
   useEffect(() => {
@@ -99,9 +86,9 @@ export function MapScreen() {
   // ── Reporting ────────────────────────────────────────────────────────────
   const submitObservation = useCallback(async (o: Observation, silent = false) => {
     await sync.queueObservation(o);
-    await sync.flush();
+    await sync.flush(); // accepted hazards are merged into the cache straight away (B1)
     if (!silent) {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       flash(sync.getStatus().pending ? 'Saved offline — will sync when you have signal' : 'Thanks! Report shared');
     }
   }, [sync, flash]);
@@ -134,120 +121,72 @@ export function MapScreen() {
     setSelectedHazard(undefined);
     await sync.queueVote({ id: uuid(), hazardId, reporterId: settings.reporterId, kind, at: Date.now(), ...(fix ? { position: fix.position } : {}) });
     await sync.flush();
-    void Haptics.selectionAsync();
+    void Haptics.selectionAsync().catch(() => undefined);
     flash(kind === 'confirm' ? 'Confirmed — thanks' : 'Marked as gone — thanks');
   }, [sync, settings.reporterId, fix, flash]);
 
   // ── Routing ──────────────────────────────────────────────────────────────
   const planRoute = useCallback(async (to: LngLat, m: TravelMode) => {
     if (!fix) {
-      flash(permission === 'denied' ? 'Allow location access to navigate' : 'Waiting for your location…');
+      flash(permission === 'denied' ? 'Allow location access to navigate'
+        : permission === 'error' ? 'Location unavailable — check that GPS is on'
+        : 'Waiting for your location…');
       return;
     }
-    setRouting(true);
     try {
-      const ranked = await hazardAwareRoute(router, { from: fix.position, to, mode: m }, hazards, settings.avoidHazards ? 6 : 0);
-      setRoutes(ranked);
-      setSelectedRoute(0);
-      setPhase('preview');
+      const ranked = await navigation.plan(fix.position, to, m, hazards);
       const all = ranked.flatMap((r) => r.route.coordinates);
       if (all.length) camera.current?.fitBounds(bboxOf(all), { padding: { top: 220, bottom: 300, left: 40, right: 40 }, duration: 800 });
     } catch (e) {
-      flash(`Couldn't find a route: ${e instanceof Error ? e.message : 'unknown error'}`);
-    } finally {
-      setRouting(false);
+      const offline = !sync.getStatus().online || /network|offline|fetch|abort/i.test(e instanceof Error ? e.message : '');
+      flash(offline && m === 'drive'
+        ? 'No connection: driving routes need signal or a route you have taken before. Try Walk, or use the hazard map.'
+        : `Couldn't find a route: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
-  }, [fix, router, hazards, settings.avoidHazards, permission, flash]);
+  }, [fix, permission, navigation, hazards, sync, flash]);
 
-  const onPick = useCallback((p: Place) => {
-    destination.current = p;
-    void planRoute(p.position, mode);
-  }, [planRoute, mode]);
+  const onPick = useCallback((p: Place) => void planRoute(p.position, mode), [planRoute, mode]);
 
   const onMode = useCallback((m: TravelMode) => {
     setMode(m);
-    if (phase === 'preview' && destination.current) void planRoute(destination.current.position, m);
-  }, [phase, planRoute]);
+    const dest = navigation.destinationOf();
+    if (phase === 'preview' && dest) void planRoute(dest.position, m);
+  }, [phase, planRoute, navigation]);
 
   const startNav = useCallback(() => {
-    const r = routes[selectedRoute]?.route;
-    if (!r) return;
-    tracker.current = new NavigationTracker(r);
-    lastSpokenStep.current = -1;
-    alerts.reset();
-    setPhase('navigate');
-    void activateKeepAwakeAsync('waylix-nav');
-    say(r.steps[0]?.instruction ?? 'Starting route');
-  }, [routes, selectedRoute, alerts, say]);
+    navigation.start(fix, hazards); // state is shown immediately, not on the next GPS fix (B2)
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
+  }, [navigation, fix, hazards]);
 
   const endNav = useCallback(() => {
-    tracker.current = undefined;
-    setPhase('browse');
-    setRoutes([]);
-    setNav(undefined);
-    destination.current = undefined;
-    deactivateKeepAwake('waylix-nav');
+    navigation.end();
+    deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
     Speech.stop();
-  }, []);
+  }, [navigation]);
 
-  // ── Per-fix navigation + hazard alerts (runs fully offline) ──────────────
+  // ── Per-fix navigation + free-driving hazard alerts (fully offline) ──────
   useEffect(() => {
     if (!fix) return;
-    const route = routes[selectedRoute]?.route;
-    let progressM: number | undefined;
-    if (phase === 'navigate' && tracker.current && route) {
-      const st = tracker.current.update(fix.position, fix.accuracyM);
-      setNav(st);
-      progressM = st.progressM;
-      if (st.arrived) {
-        say('You have arrived');
-        endNav();
-        return;
+    if (phase === 'navigate') {
+      if (navigation.onFix(fix, hazardsRef.current)) {
+        deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
       }
-      const near = mode === 'walk' ? 30 : 160;
-      if (st.nextStep && st.stepIndex !== lastSpokenStep.current && st.distanceToNextStepM <= near) {
-        lastSpokenStep.current = st.stepIndex;
-        say(st.nextStep.instruction);
-      }
-      offRouteCount.current = st.offRoute ? offRouteCount.current + 1 : 0;
-      if (offRouteCount.current >= 3 && Date.now() - lastReroute.current > 15_000 && destination.current) {
-        lastReroute.current = Date.now();
-        offRouteCount.current = 0;
-        say('Recalculating');
-        void hazardAwareRoute(router, { from: fix.position, to: destination.current.position, mode }, hazards, settings.avoidHazards ? 6 : 0)
-          .then((ranked) => {
-            if (!ranked[0]) return;
-            setRoutes(ranked);
-            setSelectedRoute(0);
-            tracker.current = new NavigationTracker(ranked[0].route);
-            lastSpokenStep.current = -1;
-          })
-          .catch(() => undefined);
-      }
+      return;
     }
     const moving = (fix.speedMps ?? 0) > (mode === 'walk' ? 0.5 : 3);
-    if (phase === 'navigate' || moving) {
-      const fresh = alerts.update(
-        {
-          position: fix.position,
-          speedMps: fix.speedMps ?? 0,
-          ...(fix.headingDeg !== undefined ? { headingDeg: fix.headingDeg } : {}),
-          ...(phase === 'navigate' && route ? { route: route.coordinates, ...(progressM !== undefined ? { progressM } : {}) } : {}),
-        },
-        hazards,
-      );
-      const top = fresh[0];
-      if (top) {
-        setAlert(top);
-        say(top.message, true);
-        if (top.level === 'warning') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        setTimeout(() => setAlert((a) => (a?.hazard.id === top.hazard.id ? undefined : a)), 6000);
-      }
+    if (!moving) return;
+    const fresh = alerts.update(
+      { position: fix.position, speedMps: fix.speedMps ?? 0, ...(fix.headingDeg !== undefined ? { headingDeg: fix.headingDeg } : {}) },
+      hazardsRef.current,
+    );
+    if (fresh[0]) {
+      showAlert(fresh[0]);
+      say(fresh[0].message, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fix]);
 
-  const activeRoute = routes[selectedRoute]?.route;
+  const activeRoute = navigation.activeRoute;
   const hazardsAhead = useMemo(() => {
     if (!activeRoute || !nav) return 0;
     return analyzeRoute(activeRoute.coordinates, hazards).hits.filter((h) => h.alongM > nav.progressM).length;
