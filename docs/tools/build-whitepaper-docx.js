@@ -45,16 +45,19 @@ function table(rows) {
   const first = n === 2 ? Math.round(CONTENT_W * 0.36) : Math.round(CONTENT_W / n);
   const widths = n === 2 ? [first, CONTENT_W - first] : Array(n).fill(Math.floor(CONTENT_W / n));
   widths[n - 1] = CONTENT_W - widths.slice(0, -1).reduce((a, b) => a + b, 0);
-  const mk = (row, isHead) => new TableRow({
+  const total = body.length + 1;
+  let rowNo = 0;
+  const mk = (row, isHead) => { const keep = ++rowNo < total; return new TableRow({
     tableHeader: isHead,
+    cantSplit: true,
     children: row.map((c, i) => new TableCell({
       width: { size: widths[i], type: WidthType.DXA },
       borders: { top: border, bottom: border, left: border, right: border },
       shading: isHead ? { type: ShadingType.CLEAR, fill: 'E8EEFF', color: 'auto' } : undefined,
       margins: { top: 70, bottom: 70, left: 110, right: 110 },
-      children: [new Paragraph({ spacing: { before: 0, after: 0, line: 260 }, children: runs(c, { size: 19, bold: isHead || undefined, font: isHead ? HEAD : BODY }) })],
+      children: [new Paragraph({ keepNext: keep, keepLines: true, spacing: { before: 0, after: 0, line: 260 }, children: runs(c, { size: 19, bold: isHead || undefined, font: isHead ? HEAD : BODY }) })],
     })),
-  });
+  }); };
   children.push(new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, columnWidths: widths, rows: [mk(header, true), ...body.map((r) => mk(r, false))] }));
   children.push(new Paragraph({ spacing: { after: 120 }, children: [] }));
 }
@@ -143,7 +146,7 @@ for (; i < md.length; i++) {
     continue;
   }
   // Abstract / keywords paragraphs get a little emphasis
-  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 288 }, children: runs(t) }));
+  children.push(new Paragraph({ alignment: AlignmentType.JUSTIFIED, keepNext: t.endsWith(':') || /\(σ = [\d.]+ m, from Table 1\)\.$/.test(t), spacing: { after: 120, line: 288 }, children: runs(t) }));
 }
 
 const doc = new Document({

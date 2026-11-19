@@ -1,60 +1,60 @@
 # Every Road Remembers
 
-### Can Crowd-Sensed Road Hazards Ground Outdoor Augmented Reality? Four Research Questions Answered with Waylix
+### Can Crowd-Sensed Road Hazards Ground Outdoor Augmented Reality? Four Research Questions Answered with Waylix, and an Outlook on Visual Positioning
 
-**AIDotLix White Paper · WP-2026-03 · Version 1.0 · November 2026**
+**AIDotLix White Paper · WP-2026-03 · Version 1.1 · November 2026**
 Author: Mahlori Lloyd Chauke (AIDotLix), Johannesburg, South Africa
 
 ---
 
 ## Abstract
 
-Augmented reality (AR) navigation has been studied for nearly three decades, and the literature is clear about how to draw a warning in the user's view. It says much less about where trustworthy warnings come from in the first place. In this paper I ask whether crowd-sensed road-hazard reports, the potholes, sinkholes and accident zones that ordinary drivers and pedestrians report, can become AR-grade content. I frame four research questions on content, registration, presentation and transfer to drones. I answer them using **Waylix**, an AIDotLix navigation app, and its **Hazard Fusion Engine**, which I designed and built following a design-science approach. The engine fuses reports into hazards that carry both an existence probability and a positional uncertainty. Simulations on the real engine show that a hazard's fused position error falls as 6/√*n* metres with *n* independent reports, from 6.1 m to 1.9 m between one and ten reports. An angular registration model built on those figures shows that GNSS-only phones misplace a pothole by 10–22° at walking distances, so they are adequate for zones and driving cues but not for pinning point hazards. A Visual Positioning System (VPS) on the viewer's device alone is not enough either. Point-accurate AR only becomes possible when the reports themselves are VPS-anchored at capture time, which brings the error at 35 m down to 1.3°, smaller than the 1.6° a one-metre pothole occupies in view. I translate these findings into presentation rules grounded in situation-awareness theory and set out a user study to test them.
+Recent research on augmented reality (AR) navigation and AR head-up displays has made real progress on *how* to show a hazard. Two problems remain open: *where trustworthy hazard content comes from*, and *how precisely it can be anchored outdoors*. In this paper I ask whether crowd-sensed road-hazard reports can become AR-grade content. I frame four research questions on content, registration, presentation and transfer to drones, and answer them with **Waylix**, an AIDotLix navigation app, and its **Hazard Fusion Engine**, which I designed and built following a design-science approach. Simulations on the production engine show that a hazard's fused position error falls as 6/√*n* metres with *n* independent reports, from 6.1 m with one report to 1.9 m with ten. An angular registration model built on those figures shows that GNSS-only phones misplace a pothole by 10–22° at walking distances. That is adequate for zones and driving cues but not for pinning point hazards. Point-accurate AR becomes possible only when *both* the viewer's device and the original reports are positioned visually: the error at 35 m then falls to 1.3°, inside the 1.6° a one-metre pothole occupies in view. I close with a Visual Positioning System (VPS) outlook grounded in visual-localisation research from 2021–2023, including localisation against OpenStreetMap itself. It sets out a phased, privacy-preserving path from today's GNSS app to lane-level AR hazard warnings.
 
-**Keywords:** augmented reality, registration error, crowdsensing, volunteered geographic information, situation awareness, visual positioning, road safety.
+**Keywords:** augmented reality, visual positioning, registration error, mobile crowdsensing, situation awareness, uncertainty visualisation, road safety.
 
 ---
 
 ## 1. Introduction
 
-I am an electrical engineer in Johannesburg, and like everyone who drives or walks here, I navigate around potholes, missing manhole covers and dark intersections every day. Most of these hazards are known to somebody, but that knowledge rarely reaches the next person on the road in time. When I started work on Waylix, I first saw it as a reporting and navigation problem. The longer I worked on it, the more it looked like an augmented reality problem.
+I am an electrical engineer in Johannesburg. Like everyone who drives or walks here, I navigate around potholes, missing manhole covers and dark intersections every day. Most of these hazards are known to *somebody*, but that knowledge rarely reaches the next person on the road in time. When I started Waylix, I saw a reporting and navigation problem. The deeper I went, the more it looked like an augmented reality problem.
 
-Azuma defined AR as a system that combines real and virtual content, is interactive in real time, and is registered in three dimensions [1]. Milgram and Kishino placed it on a continuum between the real and the virtual environment [2]. Feiner and colleagues took AR outdoors with the Touring Machine, a wearable system that overlaid information on the campus around the user [3]. Navigation followed naturally. Narzt et al. proposed the car itself as the AR display, painting the route onto the road ahead [4]. Kim and Dey showed in a simulator that an AR windshield display reduced navigation errors and distraction for elder drivers [5]. Tönnis et al. found that AR cues placed in the driver's own frame of reference could direct attention toward a source of danger [6].
+Azuma's classic definition still frames the field: AR combines real and virtual content, is interactive in real time, and is registered in three dimensions [1]. What has changed is the evidence base. A 2023 systematic review of 107 AR navigation applications found that the field has matured in hardware and platforms but remains uneven in evaluation methodology [2]. A 2025 review of AR wayfinding found that AR's performance benefits are consistently demonstrated indoors, while similar advantages have not been found outdoors [3]. A 2025 meta-analysis put AR's overall benefit to navigation at a moderate effect size (SMD 0.554), with a much larger effect for wayfinding (0.992) than for driving navigation (0.246) [4]. Outdoor, on-road AR is therefore exactly where the open questions are.
 
-These studies share an assumption I want to question. They assume the system already knows where the danger is, either from the vehicle's own sensors or from a curated map. On the roads I drive, no such map exists. Meanwhile, a separate body of work has shown that ordinary people and their phones can sense road conditions. Eriksson et al.'s Pothole Patrol detected road anomalies from vehicle-mounted accelerometers [7], and Mednis et al. did the same with Android smartphones [8]. Goodchild described citizens as sensors producing volunteered geographic information [9], and OpenStreetMap showed that such contributions can build a world map [10]. What I could not find was work connecting these two traditions: **crowd-sensed hazard data characterised as content for AR**. That is the gap this paper addresses.
+For drivers, AR head-up displays (AR-HUDs) bring a specific risk. Wang et al. showed that an AR-HUD reduces inattentional blindness to pedestrians it augments but increases it for pedestrians it does not [5]. Chen et al. found that where a hazard falls relative to the AR graphic changes whether drivers notice it at all [6]. Huo and Rubanka found that drivers come to depend on AR warnings, and that a warning failure exposes poorly calibrated trust [7]. For pedestrians, Tabone et al. surveyed 992 people on AR interfaces for road crossing [8], and Malik et al. found that AR overlays changed street-crossing decisions and reduced reported mental and physical demand for older adults [9].
+
+All of this work assumes the system already *knows* where the danger is, from vehicle sensors or a curated map. On the roads I drive, no such map exists. Meanwhile, the crowdsensing literature has shown that phones can sense road damage. Dong and Li detected surface defects from low-rate smartphone accelerometer data [10]. Daraghmi et al. built crowdsourced road-surface indices that correct for vehicle effects [11]. Xin et al. fused accelerometer and video data from crowdsourced phones to detect potholes [12]. Alzamzami et al. detected potholes from drone imagery with YOLOv8 [13]. OpenStreetMap has become a mature, multidisciplinary research platform in its own right [14], and reputation-based truth discovery has become a standard defence against low-quality crowdsensed data [15]. What I could not find was work connecting these streams: **crowd-sensed hazards characterised as content for outdoor AR.** That is this paper's gap.
 
 ## 2. Research questions
 
-I state four questions:
-
 1. **RQ1 (content).** Can noisy, unverified, duplicated crowd reports be turned into AR-grade content, meaning hazards with a quantified probability of existing and a quantified positional uncertainty?
-2. **RQ2 (registration).** What device positioning accuracy is needed to anchor such hazards in a handheld AR view? Is GNSS sufficient, or is a Visual Positioning System required?
-3. **RQ3 (presentation).** How should uncertain, time-decaying hazards be presented so that they improve situation awareness rather than overload it?
+2. **RQ2 (registration).** What positioning accuracy is needed to anchor such hazards in a handheld AR view? Is GNSS enough, or is a Visual Positioning System required?
+3. **RQ3 (presentation).** How should uncertain, time-decaying hazards be shown so that they improve situation awareness without inviting over-reliance?
 4. **RQ4 (transfer).** Can the same pipeline serve aerial platforms (drones), both as sensors and as AR users?
 
 ## 3. Method
 
-I followed design science research as described by Hevner et al. [11]: build an artefact that addresses a relevant problem, then evaluate it rigorously. The artefact is Waylix, an Android and iOS navigation app on OpenStreetMap data [10] with drive and walk routing over OSRM [15], together with its Hazard Fusion Engine. In this paper I evaluate it in three ways. First, analytically, by deriving the registration error a user would see. Second, by simulation: every figure in Section 5 comes from running the production engine code (the study script is `packages/engine/bench/ar-study.ts` in the repository), not from a separate model. Third, through a planned user study, which I lay out in Section 6. I am explicit throughout about which answers are established by the first two methods and which await the third.
+I followed design science research [16]: build an artefact that addresses a relevant problem, then evaluate it rigorously. The artefact is Waylix, an Android and iOS app on OpenStreetMap data [14] with offline maps and drive/walk routing, together with its Hazard Fusion Engine. I evaluate it in three ways. First, analytically, by deriving the registration error a user would see. Second, by simulation: every figure in Section 5 comes from running the production engine code (`packages/engine/bench/ar-study.ts` in the repository), not from a separate model. Third, through a planned user study, which I set out in Section 7. Throughout, I state which answers are established by the first two methods and which still await the third.
 
 ## 4. The artefact in brief
 
-Every input, whether a tap, an accelerometer jolt or a drone detection, is reduced to one observation schema: type, position, accuracy, time, reporter, platform and source. Observations of the same type within a type-specific merge radius are fused into one hazard.
+Every input, whether a tap, an accelerometer jolt or a drone detection, is reduced to one observation schema: type, position, accuracy, time, reporter, platform and source. Reports of the same type within a type-specific merge radius are fused into one hazard.
 
-For existence, I borrowed the log-odds formulation that Moravec and Elfes introduced for occupancy-grid mapping in robotics [12]. Evidence adds in log-odds space, and a sceptical prior keeps a single report from being taken as fact:
+For existence, I use the log-odds evidence accumulation that Moravec and Elfes introduced for occupancy-grid mapping [17]. Evidence adds in log-odds space, and a sceptical prior keeps a single report from being taken as fact:
 
 $$
 \text{logit}\,P(h) = \beta_0 + \sum_{e} s_e\, w_e\, T(\rho_e)\, 2^{-\Delta t_e/\tau}
 $$
 
-Each reporter's latest statement *e* counts once, which resists spam. Its sign *s* is positive for a report or confirmation and negative for a dismissal. Its weight *w* depends on the source (manual 1.2, accelerometer 0.45, drone camera 1.0). The evidence decays with a half-life *τ* specific to the hazard type: an accident fades in hours, a pothole persists for weeks. Reporter trust *T* comes from a Beta reputation posterior in the manner of Jøsang and Ismail [13].
+Each reporter's latest statement *e* counts once, which resists spam. Its sign *s* is positive for a report or confirmation and negative for a dismissal. Its weight *w* reflects the source (manual 1.2, accelerometer 0.45, drone camera 1.0). The evidence decays with a half-life *τ* specific to the hazard type, so an accident fades in hours and a pothole lasts for weeks. Reporter trust *T* comes from a Beta reputation posterior [18], the same family of ideas as recent reputation-based truth discovery in mobile crowdsensing [15].
 
-Position is fused by inverse-variance weighting, the static special case of Kalman's estimator [14]. The same principle blends GNSS and, in future, VPS fixes on the device. A hazard therefore carries two numbers AR can use: *P(h)* and a positional spread σ. The engine runs identically on the phone (offline) and on the server, and 43 automated tests cover its behaviour.
+Position is fused by inverse-variance weighting, and the same principle blends GNSS and, in future, VPS fixes on the device. A hazard therefore carries two numbers AR can use: *P(h)* and a positional spread σ. The engine runs identically on the phone (offline) and on the server, and 43 automated tests cover its behaviour.
 
 ## 5. Findings
 
 ### 5.1 RQ1: crowd reports can become AR-grade content
 
-I simulated 2,000 trials per condition. Each trial fused *n* independent pothole reports, each with 6 m RMS horizontal error, a modelling assumption consistent with the metre-level errors Zandbergen and Barbeau measured for phone A-GPS [16].
+I ran 2,000 trials per condition. Each trial fused *n* independent pothole reports, each with 6 m RMS horizontal error. That is an *optimistic* open-sky assumption: reviews of smartphone GNSS document how phone hardware, antennas and holding modes limit accuracy [19], and the internal positioning solution of phones in realistic handheld, dashboard and urban settings can be off by several tens of metres or more [20].
 
 | Reports *n* | Fused RMS error | 95th percentile | Theory 6/√*n* |
 |---|---|---|---|
@@ -63,11 +63,11 @@ I simulated 2,000 trials per condition. Each trial fused *n* independent pothole
 | 10 | 1.90 m | 3.27 m | 1.90 m |
 | 20 | 1.41 m | 2.27 m | 1.34 m |
 
-The engine matches the theoretical 1/√*n* behaviour of independent averaging, so each extra reporter genuinely sharpens the location. With default settings, one report is shown as a candidate (*P* ≈ 0.43), two reporters make it active, and three verify it (*P* > 0.85). **My answer to RQ1 is yes.** Fusion turns crowd reports into content with an explicit existence probability and positional σ. These are exactly the two quantities an AR renderer needs to decide *whether* to show a hazard and *how precisely* to place it.
+The engine follows the theoretical 1/√*n* law of independent averaging, so every extra reporter sharpens the location. With default settings, one report is a *candidate* (*P* ≈ 0.43), two reporters make it *active*, and three *verify* it (*P* > 0.85). **My answer to RQ1 is yes.** Fusion turns crowd reports into content with an explicit existence probability and a positional σ: the two quantities an AR renderer needs to decide *whether* to show a hazard and *how precisely* to place it.
 
 ### 5.2 RQ2: GNSS anchors zones; VPS is needed at both ends to pin points
 
-An overlay drawn at distance *d* is misplaced by an angle θ = atan(*e* / *d*), where *e* combines the device's position error with the hazard's own error. I converted θ into on-screen pixels for a typical phone camera (63° horizontal field of view, 1,080 px wide). For the hazard, I used a three-reporter pothole (σ = 3.45 m, from Table 1).
+An overlay drawn at distance *d* is misplaced by θ = atan(*e* / *d*), where *e* combines the device's position error with the hazard's own error. I converted θ into on-screen pixels for a typical phone camera (63° horizontal field of view, 1,080 px wide). For the hazard, I used a three-reporter pothole (σ = 3.45 m, from Table 1).
 
 | Distance | Phone GNSS (σ = 5 m) | VPS on viewer only (σ = 0.5 m) | VPS viewer + VPS-anchored reports |
 |---|---|---|---|
@@ -78,71 +78,105 @@ An overlay drawn at distance *d* is misplaced by an angle θ = atan(*e* / *d*), 
 
 A one-metre pothole subtends only 3.8° at 15 m and 1.6° at 35 m. Three conclusions follow.
 
-- **GNSS is good enough for zones and for driving-distance cues.** A 400 m high-accident zone is mis-registered by only 1.5% of its radius at 150 m. At driving look-ahead distances (the engine warns about 418 m ahead at 60 km/h), the error is a small fraction of the scene.
-- **GNSS cannot pin a point hazard at walking distance.** At 15–35 m the error is several times larger than the pothole itself. A world-locked pin would point at the wrong patch of tar.
-- **VPS on the viewer's device alone does not solve this,** which surprised me. Once the device is accurate, the hazard's crowd-sourced position becomes the dominant error. Point-accurate AR only appears when reports are *also* captured with VPS. With three VPS-anchored reports (σ ≈ 0.58 m), misregistration at 35 m drops to 1.3°, inside the pothole's own outline.
+- **GNSS is good enough for zones and for driving-distance cues.** A 400 m high-accident zone is mis-registered by only 1.5% of its radius at 150 m, and the engine warns about 418 m ahead at 60 km/h.
+- **GNSS cannot pin a point hazard at walking distance.** At 15–35 m the error is several times larger than the pothole itself.
+- **VPS on the viewer alone does not solve it,** which surprised me. Once the device is accurate, the hazard's crowd-sourced position becomes the dominant error. Point-accurate AR appears only when reports are *also* captured with VPS: three VPS-anchored reports (σ ≈ 0.58 m) bring the error at 35 m down to 1.3°, inside the pothole's own outline.
 
-Visual localisation makes this plausible. Structure-based methods register a photo against a 3D model at city scale [17], learned regressors such as PoseNet estimate camera pose from a single image [18], ORB-SLAM tracks a camera in real time [19], and model-based tracking has kept outdoor AR registered in urban scenes [20]. **My answer to RQ2:** GNSS is sufficient for zone-level and distance-banded AR; pinned point-hazard AR requires VPS both when the hazard is reported and when it is viewed. That changes the Waylix roadmap. VPS has to enter the reporting flow, not just the viewing flow.
+**My answer to RQ2:** GNSS is sufficient for zone-level and distance-banded AR. Pinned point-hazard AR needs VPS both when the hazard is reported and when it is viewed. This finding drives the outlook in Section 6.
 
-### 5.3 RQ3: present uncertainty, don't hide it
+### 5.3 RQ3: present uncertainty, design against over-reliance
 
-Endsley's model describes situation awareness at three levels: perceiving elements, comprehending them and projecting their future state [21]. A hazard warning has to support all three without stealing attention from the road. Wickens's multiple-resource theory suggests that splitting information across sensory channels, such as audio plus a glanceable visual, limits interference [22]. The AR perception literature warns about clutter, depth ambiguity and outdoor legibility [23]. Livingston et al. showed that showing too many occluded layers overwhelms users unless drawing style and opacity are carefully controlled [24]. Gabbard et al. caution that on-road AR competes directly with the driving task [25]. From these and my RQ2 results, I derive four rules, which Waylix's map layer already partly implements:
+Endsley's recent meta-analysis confirms that freeze-probe SAGAT measurement is sensitive to display design [21], which makes situation awareness a measurable target for these design choices. Uncertainty-visualisation research in AR is now directly relevant. Doula et al. found at ISMAR 2023 that *hiding* model uncertainty in AR led to lower driver engagement [22]. Scargill et al. showed that a phone's own pose-tracking error can be estimated without ground truth and visualised in place [23]. Combining these with the inattentional-blindness [5], [6] and over-reliance [7] findings and my RQ2 results, I derive five rules. Waylix's map layer already implements the first two in part.
 
-1. **Encode confidence as opacity.** Candidates are drawn faded, verified hazards solid. This keeps Level-1 perception honest about what is still uncertain.
+1. **Encode confidence as opacity.** Candidates faded, verified hazards solid.
 2. **Encode positional σ as footprint, not a pin.** Draw a ground disc whose radius is the fused σ, so the overlay never claims more precision than the data has.
-3. **Switch representation on the registration test.** When θ exceeds the hazard's angular size, show a distance-and-direction cue ("pothole ahead, 35 m") instead of a world-locked marker. Switch to a pinned overlay only once θ falls below the angular size, which, per RQ2, means VPS at both ends.
-4. **Lead with audio for drivers; reserve handheld AR for pedestrians.** The engine's time-based look-ahead already sets the moment of the warning: about 60 m for a walker and about 418 m at 60 km/h. That supports Level-3 projection without requiring the driver to look at a phone.
+3. **Switch representation on the registration test.** When θ exceeds the hazard's angular size, show a distance-and-direction cue ("pothole ahead, 35 m") rather than a world-locked marker. Pin only when θ is smaller, using the device's *live* pose-error estimate [23].
+4. **Lead with audio for drivers; reserve handheld AR for pedestrians.** AR graphics change what drivers notice and what they miss [5], [6]. The engine's time-based look-ahead (about 60 m walking, about 418 m at 60 km/h) sets when each warning fires.
+5. **Show coverage, not just hazards.** Drivers rely on AR warnings and are caught out when one fails [7]. A crowd-sourced map is never complete, so the interface must signal when an area has sparse or stale data. "No warning" must never read as "no hazard".
 
-**My answer to RQ3** is these four rules. They are grounded in established theory and my measured registration limits, but they remain hypotheses until the study in Section 6 tests them.
+**My answer to RQ3** is these five rules, grounded in recent evidence and my measured registration limits. They are hypotheses until the study in Section 7 tests them.
 
 ### 5.4 RQ4: one pipeline transfers to drones
 
-A drone camera is treated as another sensor. Detections are projected from pixel coordinates to the ground using a pinhole camera model with known intrinsic parameters, following classical calibration practice [26], and the drone's pose. The adapter attaches an error estimate that grows with slant range. Aerial hazards such as cables and cranes are stored in an *air* domain with altitude bands, so hazards at different heights are not merged. In the engine's tests, a pothole detected by a drone at 60 m altitude fuses into the same hazard a driver reported. **My answer to RQ4 is a qualified yes.** The data path transfers without modification, and the same registration analysis applies to a drone operator's first-person view. Flat-ground projection and flight validation are still open.
+Drone imagery already detects potholes reliably with modern detectors [13]. In Waylix, a drone camera is just another sensor. Detections are projected from pixel coordinates to the ground using a pinhole camera model and the drone's pose, and the adapter attaches an error estimate that grows with slant range. Aerial hazards such as cables and cranes live in an *air* domain with altitude bands, so they never merge with ground hazards. In the engine's tests, a drone-detected pothole fuses into the same hazard a driver reported. **My answer to RQ4 is a qualified yes:** the data path transfers unchanged, and the same registration analysis applies to a drone operator's first-person view. Flat-ground projection and flight validation remain open.
 
-## 6. Planned evaluation
+## 6. VPS outlook: from GNSS to lane-level AR
 
-To test the RQ3 rules, I will run a within-subjects study with pedestrians in Johannesburg, comparing a 2D map with audio alerts against an AR view that follows the four rules. Driving conditions will be simulated only, for safety. I will measure hazard identification time and accuracy; situation awareness with the SAGAT freeze-probe technique [27]; workload with NASA-TLX [28]; and usability with the System Usability Scale, interpreted against Bangor et al.'s benchmarks [29]. My hypotheses are that the AR condition improves identification time without raising workload, and that the switch from cue to pin (rule 3) prevents the false-precision errors a naive pin would cause.
+RQ2 makes VPS the critical enabler, not an optional extra. Visual localisation estimates a camera's full 6-DoF pose by matching an image against a map. Research from 2021–2023 shows why it is now realistic for a product like Waylix, and what still stands in the way.
 
-## 7. Limitations
+**Robustness is measurable.** Toft et al. extended benchmark datasets with ground-truth poses across day-night, weather and seasonal change, so robustness can now be quantified rather than assumed [24]. LaMAR re-centred evaluation on *AR* itself, building a benchmark from heterogeneous AR devices in large, unconstrained scenes [25]. Johannesburg's harsh sun, load-shedding darkness and summer storms are exactly the conditions these benchmarks probe.
 
-My registration figures rest on simulation, and real GNSS error is neither Gaussian nor independent between nearby reporters: multipath in urban canyons correlates errors [16], which would slow the 1/√*n* gain. The source weights and decay half-lives are engineering priors that still need field calibration. Accelerometer evidence cannot yet tell a pothole from a speed bump. And the AR rendering layer described in Section 5.3 is designed, not yet built. Waylix today delivers the fusion engine, the hazard map, offline navigation and audio alerts on which that layer will sit.
+**Maps no longer have to be 3D.** OrienterNet localises an image with sub-metre accuracy by matching it against 2D OpenStreetMap data, the same open maps people use to orient themselves [26]. To me this is the most important result for Waylix. The app already runs on OpenStreetMap [14], so a first VPS tier needs no expensive 3D city scan. That matters in African cities, where street-level 3D coverage is sparse.
 
-## 8. Conclusion
+**Each report can be its own anchor.** Map-free relocalisation estimates metric pose relative to a *single* reference image, and it scores methods by the reprojection error of virtual objects and by their confidence estimates [27]. These are exactly the quantities my RQ2 and RQ3 analysis needs. A photo attached to a hazard report could serve as that hazard's anchor, which is the "VPS at capture time" that RQ2 calls for.
 
-I set out to find whether the reports of ordinary road users can carry the weight of augmented reality. The answer is that they can, provided we treat them as evidence rather than fact. Fusion gives every hazard a probability and a spread. Registration analysis tells us which hazards GNSS can anchor and which need VPS, at capture as well as at viewing. Established human-factors theory tells us how to show the uncertainty honestly. Every road remembers. With Waylix, I want the next person on that road to see what it remembers.
+**Hotspots can be mapped in minutes.** Accelerated Coordinate Encoding learns a scene-specific relocaliser in under five minutes of mapping, up to 300 times faster than earlier scene-coordinate regression [28]. Dense neural maps for high-risk corridors, such as taxi ranks, school routes and known accident zones, become feasible for a small team or a municipality.
+
+**GNSS stays in the loop.** GVINS tightly fuses raw GNSS with visual and inertial data in a factor graph for drift-free global pose [29]. That is the natural successor to Waylix's current inverse-variance `PositionFuser`, and it keeps the system working when the camera is covered or the scene is featureless.
+
+**Privacy must be designed in.** Dusmanu et al. showed that the local image features VPS uploads can be inverted to recover the original scene, and proposed privacy-preserving descriptors [30]. Waylix will never upload raw images for localisation, and anchor photos will be blurred and stripped of metadata on-device.
+
+From this I set out a phased roadmap:
+
+| Phase | Capability | Enabling work | Unlocks |
+|---|---|---|---|
+| 0 (today) | GNSS + crowd fusion | Waylix engine | Zones, audio cues, hazard map |
+| 1 | OSM-based visual localisation on-device | OrienterNet [26] | Sub-metre heading and position for walkers |
+| 2 | Anchor photo with each report | Map-free relocalisation [27] | VPS-anchored hazards (σ < 1 m) |
+| 3 | Neural maps for hazard hotspots | ACE [28] | Pinned AR in high-risk corridors |
+| 4 | Tight GNSS-visual-inertial fusion | GVINS [29], SiTAR [23] | Continuous pose with live error bounds |
+| 5 | Drone-built maps and aerial AR | PDS-UAV [13], engine air domain | One map from road and sky |
+
+The quantitative target for Phases 1–2 comes straight from Section 5.2: device σ ≤ 0.5 m *and* hazard σ ≤ 0.6 m for pinned AR at 35 m. That is the number I will hold every VPS candidate to.
+
+## 7. Planned evaluation
+
+To test the RQ3 rules, I will run a within-subjects study with pedestrians in Johannesburg. It compares a 2D map with audio alerts against an AR view following the five rules. Driving conditions will be simulated only, for safety. I will measure hazard identification time and accuracy; situation awareness with SAGAT [21]; and workload with instruments chosen according to Kosch et al.'s survey of cognitive-workload measurement in HCI [31]. My hypotheses are, first, that AR improves identification time without raising workload, and second, that the cue-to-pin switch (rule 3) prevents the false-precision errors a naive pin would cause.
+
+## 8. Limitations
+
+My registration figures rest on simulation with an optimistic GNSS model. Real smartphone errors are larger, heavier-tailed and correlated between nearby reporters [19], [20], which would slow the 1/√*n* gain and strengthen the case for VPS. The source weights and decay half-lives are engineering priors that need field calibration. Accelerometer evidence cannot yet tell a pothole from a speed bump, a known weakness that motivates multi-sensor fusion [12]. The AR rendering layer and the VPS phases are designed, not yet built. Waylix today delivers the fusion engine, the hazard map, offline navigation and audio alerts on which they will sit.
+
+## 9. Conclusion
+
+I set out to find whether ordinary road users' reports can carry the weight of augmented reality. They can, if we treat them as evidence rather than fact. Fusion gives every hazard a probability and a spread. Registration analysis shows which hazards GNSS can anchor and which need VPS, at capture as well as at viewing. Recent work on visual localisation, from OpenStreetMap-based localisation to map-free relocalisation, shows the path is open. Every road remembers. With Waylix, I want the next person on that road to see what it remembers.
 
 ---
 
 ### References
 
-1. R. T. Azuma, "A survey of augmented reality," *Presence: Teleoperators and Virtual Environments*, vol. 6, no. 4, pp. 355–385, 1997.
-2. P. Milgram and F. Kishino, "A taxonomy of mixed reality visual displays," *IEICE Trans. Information and Systems*, vol. E77-D, no. 12, pp. 1321–1329, 1994.
-3. S. Feiner, B. MacIntyre, T. Höllerer, and A. Webster, "A touring machine: prototyping 3D mobile augmented reality systems for exploring the urban environment," in *Proc. IEEE Int. Symp. Wearable Computers (ISWC)*, 1997, pp. 74–81.
-4. W. Narzt, G. Pomberger, A. Ferscha, D. Kolb, R. Müller, J. Wieghardt, H. Hörtner, and C. Lindinger, "Augmented reality navigation systems," *Universal Access in the Information Society*, vol. 4, no. 3, pp. 177–187, 2006.
-5. S. Kim and A. K. Dey, "Simulated augmented reality windshield display as a cognitive mapping aid for elder driver navigation," in *Proc. ACM CHI*, 2009, pp. 133–142.
-6. M. Tönnis, C. Sandor, C. Lange, and H. Bubb, "Experimental evaluation of an augmented reality visualization for directing a car driver's attention," in *Proc. IEEE/ACM ISMAR*, 2005, pp. 56–59.
-7. J. Eriksson, L. Girod, B. Hull, R. Newton, S. Madden, and H. Balakrishnan, "The Pothole Patrol: using a mobile sensor network for road surface monitoring," in *Proc. ACM MobiSys*, 2008, pp. 29–39.
-8. A. Mednis, G. Strazdins, R. Zviedris, G. Kanonirs, and L. Selavo, "Real time pothole detection using Android smartphones with accelerometers," in *Proc. IEEE DCOSS*, 2011, pp. 1–6.
-9. M. F. Goodchild, "Citizens as sensors: the world of volunteered geography," *GeoJournal*, vol. 69, no. 4, pp. 211–221, 2007.
-10. M. Haklay and P. Weber, "OpenStreetMap: user-generated street maps," *IEEE Pervasive Computing*, vol. 7, no. 4, pp. 12–18, 2008.
-11. A. R. Hevner, S. T. March, J. Park, and S. Ram, "Design science in information systems research," *MIS Quarterly*, vol. 28, no. 1, pp. 75–105, 2004.
-12. H. Moravec and A. Elfes, "High resolution maps from wide angle sonar," in *Proc. IEEE Int. Conf. Robotics and Automation (ICRA)*, 1985, pp. 116–121.
-13. A. Jøsang and R. Ismail, "The beta reputation system," in *Proc. 15th Bled Electronic Commerce Conf.*, 2002.
-14. R. E. Kalman, "A new approach to linear filtering and prediction problems," *Trans. ASME, J. Basic Engineering*, vol. 82, no. 1, pp. 35–45, 1960.
-15. D. Luxen and C. Vetter, "Real-time routing with OpenStreetMap data," in *Proc. ACM SIGSPATIAL GIS*, 2011, pp. 513–516.
-16. P. A. Zandbergen and S. J. Barbeau, "Positional accuracy of assisted GPS data from high-sensitivity GPS-enabled mobile phones," *J. Navigation*, vol. 64, no. 3, pp. 381–399, 2011.
-17. T. Sattler, B. Leibe, and L. Kobbelt, "Efficient & effective prioritized matching for large-scale image-based localization," *IEEE Trans. Pattern Analysis and Machine Intelligence*, vol. 39, no. 9, pp. 1744–1756, 2017.
-18. A. Kendall, M. Grimes, and R. Cipolla, "PoseNet: a convolutional network for real-time 6-DOF camera relocalization," in *Proc. IEEE ICCV*, 2015, pp. 2938–2946.
-19. R. Mur-Artal, J. M. M. Montiel, and J. D. Tardós, "ORB-SLAM: a versatile and accurate monocular SLAM system," *IEEE Trans. Robotics*, vol. 31, no. 5, pp. 1147–1163, 2015.
-20. G. Reitmayr and T. W. Drummond, "Going out: robust model-based tracking for outdoor augmented reality," in *Proc. IEEE/ACM ISMAR*, 2006, pp. 109–118.
-21. M. R. Endsley, "Toward a theory of situation awareness in dynamic systems," *Human Factors*, vol. 37, no. 1, pp. 32–64, 1995.
-22. C. D. Wickens, "Multiple resources and performance prediction," *Theoretical Issues in Ergonomics Science*, vol. 3, no. 2, pp. 159–177, 2002.
-23. E. Kruijff, J. E. Swan II, and S. Feiner, "Perceptual issues in augmented reality revisited," in *Proc. IEEE ISMAR*, 2010, pp. 3–12.
-24. M. A. Livingston, J. E. Swan II, J. L. Gabbard, T. H. Höllerer, D. Hix, S. J. Julier, Y. Baillot, and D. Brown, "Resolving multiple occluded layers in augmented reality," in *Proc. IEEE/ACM ISMAR*, 2003, pp. 56–65.
-25. J. L. Gabbard, G. M. Fitch, and H. Kim, "Behind the glass: driver challenges and opportunities for AR automotive applications," *Proc. IEEE*, vol. 102, no. 2, pp. 124–136, 2014.
-26. R. Y. Tsai, "A versatile camera calibration technique for high-accuracy 3D machine vision metrology using off-the-shelf TV cameras and lenses," *IEEE J. Robotics and Automation*, vol. RA-3, no. 4, pp. 323–344, 1987.
-27. M. R. Endsley, "Measurement of situation awareness in dynamic systems," *Human Factors*, vol. 37, no. 1, pp. 65–84, 1995.
-28. S. G. Hart, "NASA-Task Load Index (NASA-TLX); 20 years later," in *Proc. Human Factors and Ergonomics Society Annual Meeting*, vol. 50, no. 9, 2006, pp. 904–908.
-29. A. Bangor, P. T. Kortum, and J. T. Miller, "An empirical evaluation of the System Usability Scale," *Int. J. Human–Computer Interaction*, vol. 24, no. 6, pp. 574–594, 2008.
+*Foundational works are marked †; all other references are peer-reviewed papers from 2021–2025.*
+
+1. † R. T. Azuma, "A survey of augmented reality," *Presence: Teleoperators and Virtual Environments*, vol. 6, no. 4, pp. 355–385, 1997.
+2. K. Cheliotis, F. Liarokapis, M. Kokla, E. Tomai, *et al.*, "A systematic review of application development in augmented reality navigation research," *Cartography and Geographic Information Science*, 2023, doi: 10.1080/15230406.2023.2194032.
+3. Z. Qiu, A. Mostafavi, and S. Kalantari, "Use of augmented reality in human wayfinding: a systematic review," *Virtual Reality*, 2025, doi: 10.1007/s10055-025-01226-w.
+4. S. S. Man, P. Su, C. Xiao, H. Yun, and A. H. S. Chan, "Effectiveness of augmented reality technology in improving navigation performance: a systematic review and meta-analysis," *Ergonomics*, 2025, in press.
+5. Y. Wang, Y. Wu, C. Chen, *et al.*, "Inattentional blindness in augmented reality head-up display-assisted driving," *Int. J. Human–Computer Interaction*, vol. 38, no. 9, pp. 837–850, 2022.
+6. W. Chen, J. Song, Y. Wang, C. Wu, S. Ma, D. Wang, Z. Yang, and H. Li, "Inattentional blindness to unexpected hazard in augmented reality head-up display assisted driving: the impact of the relative position between stimulus and augmented graph," *Traffic Injury Prevention*, vol. 24, no. 4, pp. 344–351, 2023.
+7. F. Huo and A. Rubanka, "Differences in drivers' dependence on AR warning information in urban driving environments: the role of driving experience," *Frontiers in Virtual Reality*, vol. 6, 2025, doi: 10.3389/frvir.2025.1638823.
+8. W. Tabone, R. Happee, J. García, Y. M. Lee, M. L. Lupetti, N. Merat, and J. C. F. de Winter, "Augmented reality interfaces for pedestrian–vehicle interactions: an online study," *Transportation Research Part F*, vol. 94, pp. 170–189, 2023.
+9. J. Malik, N.-Y. Kim, M. D. N. Parr, J. K. Kearney, J. M. Plumert, and K. Rector, "Do simulated augmented reality overlays influence street-crossing decisions for non-mobility-impaired older and younger adult pedestrians?" *Human Factors*, vol. 66, no. 5, pp. 1520–1530, 2024.
+10. D. Dong and Z. Li, "Smartphone sensing of road surface condition and defect detection," *Sensors*, vol. 21, no. 16, art. 5433, 2021.
+11. Y.-A. Daraghmi, T.-H. Wu, and T.-U. Ik, "Crowdsourcing-based road surface evaluation and indexing," *IEEE Trans. Intelligent Transportation Systems*, vol. 23, no. 5, 2022.
+12. H. Xin, Y. Ye, X. Na, H. Hu, G. Wang, C. Wu, and S. Hu, "Sustainable road pothole detection: a crowdsourcing based multi-sensors fusion approach," *Sustainability*, vol. 15, no. 8, art. 6610, 2023.
+13. O. Alzamzami, A. Babour, W. Baalawi, and L. Al Khuzayem, "PDS-UAV: a deep learning-based pothole detection system using unmanned aerial vehicle images," *Sustainability*, vol. 16, no. 21, art. 9168, 2024.
+14. A. Y. Grinberger, M. Minghini, L. Juhász, G. Yeboah, and P. Mooney, "OSM Science—the academic study of the OpenStreetMap project, data, contributors, community, and applications," *ISPRS Int. J. Geo-Information*, vol. 11, no. 4, art. 230, 2022.
+15. J. Li, B. Gu, S. Gong, Z. Su, and M. Guizani, "Can we enhance the quality of mobile crowdsensing data without ground truth?" *IEEE Trans. Mobile Computing*, 2025, doi: 10.1109/TMC.2025.3526277.
+16. † A. R. Hevner, S. T. March, J. Park, and S. Ram, "Design science in information systems research," *MIS Quarterly*, vol. 28, no. 1, pp. 75–105, 2004.
+17. † H. Moravec and A. Elfes, "High resolution maps from wide angle sonar," in *Proc. IEEE ICRA*, 1985, pp. 116–121.
+18. † A. Jøsang and R. Ismail, "The beta reputation system," in *Proc. 15th Bled Electronic Commerce Conf.*, 2002.
+19. F. Zangenehnejad and Y. Gao, "GNSS smartphones positioning: advances, challenges, opportunities, and future perspectives," *Satellite Navigation*, vol. 2, no. 1, 2021.
+20. G. Shinghal and S. Bisnath, "Conditioning and PPP processing of smartphone GNSS measurements in realistic environments," *Satellite Navigation*, vol. 2, art. 10, 2021.
+21. M. R. Endsley, "A systematic review and meta-analysis of direct objective measures of situation awareness: a comparison of SAGAT and SPAM," *Human Factors*, vol. 63, no. 1, pp. 124–150, 2021.
+22. A. Doula, L. Schmidt, M. Mühlhäuser, and A. Sanchez Guinea, "'Can you handle the truth?': investigating the effects of AR-based visualization of the uncertainty of deep learning models on users of autonomous vehicles," in *Proc. IEEE ISMAR*, 2023, doi: 10.1109/ISMAR59233.2023.00040.
+23. T. Scargill, Y. Chen, T. Hu, and M. Gorlatova, "SiTAR: situated trajectory analysis for in-the-wild pose error estimation," in *Proc. IEEE ISMAR*, 2023, pp. 283–292.
+24. C. Toft, W. Maddern, A. Torii, L. Hammarstrand, E. Stenborg, D. Safari, M. Okutomi, M. Pollefeys, J. Sivic, T. Pajdla, F. Kahl, and T. Sattler, "Long-term visual localization revisited," *IEEE Trans. Pattern Analysis and Machine Intelligence*, vol. 44, no. 4, pp. 2074–2088, 2022.
+25. P.-E. Sarlin, M. Dusmanu, J. L. Schönberger, P. Speciale, L. Gruber, V. Larsson, O. Miksik, and M. Pollefeys, "LaMAR: benchmarking localization and mapping for augmented reality," in *Proc. ECCV*, LNCS vol. 13667, 2022, pp. 686–704.
+26. P.-E. Sarlin, D. DeTone, T.-Y. Yang, A. Avetisyan, J. Straub, T. Malisiewicz, S. Rota Bulò, R. Newcombe, P. Kontschieder, and V. Balntas, "OrienterNet: visual localization in 2D public maps with neural matching," in *Proc. IEEE/CVF CVPR*, 2023, pp. 21632–21642.
+27. E. Arnold, J. Wynn, S. Vicente, G. Garcia-Hernando, Á. Monszpart, V. Prisacariu, D. Turmukhambetov, and E. Brachmann, "Map-free visual relocalization: metric pose relative to a single image," in *Proc. ECCV*, 2022, doi: 10.1007/978-3-031-19769-7_40.
+28. E. Brachmann, T. Cavallari, and V. A. Prisacariu, "Accelerated coordinate encoding: learning to relocalize in minutes using RGB and poses," in *Proc. IEEE/CVF CVPR*, 2023, pp. 5044–5053.
+29. S. Cao, X. Lu, and S. Shen, "GVINS: tightly coupled GNSS–visual–inertial fusion for smooth and consistent state estimation," *IEEE Trans. Robotics*, vol. 38, no. 4, pp. 2004–2021, 2022.
+30. M. Dusmanu, J. L. Schönberger, S. N. Sinha, and M. Pollefeys, "Privacy-preserving image features via adversarial affine subspace embeddings," in *Proc. IEEE/CVF CVPR*, 2021, pp. 14267–14277.
+31. T. Kosch, J. Karolus, J. Zagermann, H. Reiterer, A. Schmidt, and P. W. Woźniak, "A survey on measuring cognitive workload in human-computer interaction," *ACM Computing Surveys*, vol. 55, no. 13s, art. 283, 2023.
 
 *© 2026 AIDotLix. Waylix and the Waylix Hazard Fusion Engine are products of AIDotLix.*
