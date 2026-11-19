@@ -2,7 +2,7 @@
 
 ### Can Crowd-Sensed Road Hazards Ground Outdoor Augmented Reality? Four Research Questions Answered with Waylix, and an Outlook on Visual Positioning
 
-**AIDotLix White Paper · WP-2026-03 · Version 1.1 · November 2026**
+**AIDotLix White Paper · WP-2026-03 · Version 1.2 · November 2026**
 Author: Mahlori Lloyd Chauke (AIDotLix), Johannesburg, South Africa
 
 ---
@@ -34,7 +34,7 @@ All of this work assumes the system already *knows* where the danger is, from ve
 
 ## 3. Method
 
-I followed design science research [16]: build an artefact that addresses a relevant problem, then evaluate it rigorously. The artefact is Waylix, an Android and iOS app on OpenStreetMap data [14] with offline maps and drive/walk routing, together with its Hazard Fusion Engine. I evaluate it in three ways. First, analytically, by deriving the registration error a user would see. Second, by simulation: every figure in Section 5 comes from running the production engine code (`packages/engine/bench/ar-study.ts` in the repository), not from a separate model. Third, through a planned user study, which I set out in Section 7. Throughout, I state which answers are established by the first two methods and which still await the third.
+I followed design science research [16]: build an artefact that addresses a relevant problem, then evaluate it rigorously. The artefact is Waylix, an Android and iOS app on OpenStreetMap data [14] with offline maps and drive/walk routing, together with its Hazard Fusion Engine. I evaluate it in four ways. First, analytically, by deriving the registration error a user would see. Second, by simulation: every figure in Section 5 comes from running the production engine code (`packages/engine/bench/ar-study.ts` in the repository), not from a separate model. Third, through an end-to-end run of the app itself: its real React Native interface, rendered in Chrome via react-native-web against the live API server and scripted through twelve screens (`apps/mobile/web-preview/`). Fourth, through a planned user study, which I set out in Section 7. Throughout, I state which answers are established by the first three methods and which still await the fourth.
 
 ## 4. The artefact in brief
 
@@ -135,7 +135,11 @@ To test the RQ3 rules, I will run a within-subjects study with pedestrians in Jo
 
 ## 8. Limitations
 
-My registration figures rest on simulation with an optimistic GNSS model. Real smartphone errors are larger, heavier-tailed and correlated between nearby reporters [19], [20], which would slow the 1/√*n* gain and strengthen the case for VPS. The source weights and decay half-lives are engineering priors that need field calibration. Accelerometer evidence cannot yet tell a pothole from a speed bump, a known weakness that motivates multi-sensor fusion [12]. The AR rendering layer and the VPS phases are designed, not yet built. Waylix today delivers the fusion engine, the hazard map, offline navigation and audio alerts on which they will sit.
+**Implementation status.** An internal review of v0.1 (November 2026) confirmed the core: all 43 automated tests pass, both mobile bundles compile, and the scripted run reproduced the paper's behaviour in the live app. A walker's route through Braamfontein listed both known hazards on the way, and the alert fired "Pothole ahead in 40 m" at the predicted distance. The same run exposed three interface defects, each now scheduled for a fix: a newly synced report missing from the map until the next pull, a navigation banner that waited for the next GPS fix, and arrival wording shown too early. No native build has yet run on a physical phone, so sensor and offline-map behaviour remains unverified.
+
+**Identity is the weakest assumption.** Spam resistance in Section 4 counts each *reporter ID* once, but in v0.1 the client chooses its own anonymous ID. One person minting IDs could verify a false hazard with three of them, or resolve a real one with two dismissals. This is a Sybil attack, and it bounds every confidence figure in this paper. Reputation-based truth discovery [15] assumes identities are costly to create. Waylix will therefore anchor IDs to server-issued device tokens with platform attestation before any public pilot.
+
+**Model and data.** My registration figures rest on simulation with an optimistic GNSS model. Real smartphone errors are larger, heavier-tailed and correlated between nearby reporters [19], [20], which would slow the 1/√*n* gain and strengthen the case for VPS. The source weights and decay half-lives are engineering priors that need field calibration. Accelerometer evidence cannot yet tell a pothole from a speed bump, a known weakness that motivates multi-sensor fusion [12]. The AR rendering layer and the VPS phases are designed, not yet built. Waylix today delivers the fusion engine, the hazard map, offline navigation and audio alerts on which they will sit.
 
 ## 9. Conclusion
 

@@ -22,6 +22,15 @@ All of it runs on the **Waylix Hazard Fusion Engine (HFE)**, a platform-agnostic
                                         event log → replay → hazards API
 ```
 
+## Screenshots
+
+Captured from the app's real UI (react-native-web) against the live API. The basemap tiles are not drawn in the web preview, but hazards, routes and their styling are the real layers.
+
+![Map, street level, hazard details](docs/screenshots/overview-1-3.png)
+![Reporting flow](docs/screenshots/overview-4-6.png)
+![Search, route preview, navigation](docs/screenshots/overview-7-9.png)
+![Hazard alert, settings, offline maps](docs/screenshots/overview-10-12.png)
+
 ## Repository layout
 
 | Path | What it is |
@@ -68,6 +77,16 @@ npx expo run:android     # or: npx expo run:ios  (macOS + Xcode)
 
 In the app, open **☰ → Servers** and set the *Waylix API* URL to your server. The default `http://10.0.2.2:8787` reaches your computer from the Android emulator. On a real phone, use your computer's LAN IP or a deployed URL.
 
+### Web preview (UI review and screenshots)
+
+MapLibre Native has no web build, so on the web platform `metro.config.js` swaps it (and `expo-location`) for small stand-ins in `apps/mobile/web-preview/`. These render the app's real GeoJSON layers without basemap tiles. Native builds are unaffected.
+
+```bash
+cd apps/mobile && npx expo export --platform web --output-dir /tmp/wl-web
+python3 -m http.server 8081 -d /tmp/wl-web &          # serve it
+python3 web-preview/screenshots.py ../../docs/screenshots   # needs Playwright + Chrome, API on :8787
+```
+
 ### Docker
 
 ```bash
@@ -93,6 +112,19 @@ Set `WAYLIX_API_KEYS=key1,key2` to require `Authorization: Bearer` on writes.
 ## Free services and fair use
 
 The defaults are keyless community services: OpenFreeMap (tiles), FOSSGIS `routing.openstreetmap.de` (OSRM, **max ~1 request/second**) and komoot Photon (search). They are fine for development and pilots. **Self-host routing and search before a public launch** (`infra/`). Every endpoint can be changed in the app's settings. Map data © OpenStreetMap contributors (ODbL).
+
+## Known issues (v0.1 review, Nov 2026)
+
+| ID | Issue | Severity |
+|---|---|---|
+| B1 | A synced report is missing from the map until the next pull (push response hazards are discarded) | High |
+| B2 | Navigation banner and ETA wait for the next GPS fix after Start; the GPS watch restarts on Start | High |
+| B3 | The final step text "You have arrived" is shown before arrival | High |
+| B4 | Reporter IDs are client-chosen, so the Sybil-resistance of fusion can be bypassed; the rate limiter trusts `X-Forwarded-For` | High |
+| B5 | No initial `getCurrentPosition` seed; non-permission errors are reported as "denied" | Medium |
+| B6 | Offline area cap (2,500 km² at z10–16) exceeds tile limits; size label rounds to "~0 km²" | Medium |
+
+The full review, with all 14 items, is in the AIDotLix review doc.
 
 ## Roadmap
 
