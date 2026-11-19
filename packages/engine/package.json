@@ -1,0 +1,31 @@
+{
+  "name": "@waylix/engine",
+  "version": "0.1.0",
+  "description": "Waylix Hazard Fusion Engine \u2014 platform-agnostic geospatial event engine for vehicles, pedestrians and drones. Zero runtime dependencies.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "react-native": "./src/index.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "bench": "tsx bench/bench.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.0",
+    "typescript": "~5.9.3"
+  }
+}

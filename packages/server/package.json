@@ -1,0 +1,28 @@
+{
+  "name": "@waylix/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Waylix API \u2014 ingests observations from phones, vehicles and drones and serves fused hazards.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "prebuild": "npm --prefix ../engine run build",
+    "build": "tsc -p tsconfig.json",
+    "pretypecheck": "npm --prefix ../engine run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "predev": "npm --prefix ../engine run build",
+    "dev": "node --disable-warning=ExperimentalWarning --import tsx --watch src/index.ts",
+    "start": "node --disable-warning=ExperimentalWarning dist/index.js",
+    "seed": "node --disable-warning=ExperimentalWarning --import tsx src/seed.ts",
+    "pretest": "npm --prefix ../engine run build",
+    "test": "node --disable-warning=ExperimentalWarning --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@waylix/engine": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.0",
+    "typescript": "~5.9.3"
+  }
+}

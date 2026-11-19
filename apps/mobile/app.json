@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Waylix",
+    "slug": "waylix",
+    "scheme": "waylix",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.aidotlix.waylix",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Waylix uses your location to show the map around you, navigate, and place the hazards you report.",
+        "NSMotionUsageDescription": "Waylix can detect potholes automatically from your phone's motion sensor while you drive.",
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "package": "com.aidotlix.waylix",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "HIGH_SAMPLING_RATE_SENSORS"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Waylix uses your location to show the map around you, navigate, and place the hazards you report."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Waylix can detect potholes automatically from your phone's motion sensor while you drive."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": { "minSdkVersion": 26 },
+          "ios": { "deploymentTarget": "16.4" }
+        }
+      ]
+    ],
+    "extra": {
+      "brand": "Waylix by AIDotLix"
+    }
+  }
+}
