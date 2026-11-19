@@ -4,7 +4,7 @@
 
 All of it runs on the **Waylix Hazard Fusion Engine (HFE)**, a platform-agnostic geospatial event engine. The same code runs on the phone (offline) and on the server, and drones can use it today through a built-in adapter.
 
-📄 White paper — *Every Road Remembers*: [Markdown](docs/WHITEPAPER.md) · [PDF](docs/Waylix_White_Paper_AIDotLix.pdf) · [Word](docs/Waylix_White_Paper_AIDotLix.docx)
+📄 White paper — *Every Road Remembers: Can Crowd-Sensed Road Hazards Ground Outdoor AR?*: [Markdown](docs/WHITEPAPER.md) · [PDF](docs/Waylix_White_Paper_AIDotLix.pdf) · [Word](docs/Waylix_White_Paper_AIDotLix.docx)
 
 ```
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐

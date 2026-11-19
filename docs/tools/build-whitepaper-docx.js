@@ -78,10 +78,15 @@ while (i < md.length && md[i].trim() !== '---') i++;
 i++;
 
 let inRefs = false;
+let listInstance = 0;
+let prevWasNum = false;
 for (; i < md.length; i++) {
   const line = md[i];
   const t = line.trim();
   if (!t) continue;
+  const isNum = /^\d+\.\s+/.test(t);
+  if (isNum && !prevWasNum) listInstance++;
+  prevWasNum = isNum;
   if (t === '---') continue;
   if (t.startsWith('## ')) {
     const text = t.slice(3);
@@ -129,7 +134,7 @@ for (; i < md.length; i++) {
     if (inRefs) {
       children.push(new Paragraph({ spacing: { after: 70 }, indent: { left: 420, hanging: 420 }, children: [new TextRun({ text: `[${num[1]}]\t`, size: 19 }), ...runs(num[2], { size: 19 })], tabStops: [{ type: TabStopType.LEFT, position: 420 }] }));
     } else {
-      children.push(new Paragraph({ numbering: { reference: 'numbers', level: 0 }, spacing: { after: 80 }, children: runs(num[2]) }));
+      children.push(new Paragraph({ numbering: { reference: 'numbers', level: 0, instance: listInstance }, spacing: { after: 80 }, children: runs(num[2]) }));
     }
     continue;
   }
